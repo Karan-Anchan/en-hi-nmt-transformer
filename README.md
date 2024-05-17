@@ -2,11 +2,11 @@
 
 # 🚀 Transformer Model from Scratch 🚀
 
-Welcome to the Transformer Model from Scratch repository! This project showcases a custom implementation of the Transformer architecture using PyTorch. Dive into the world of sequence-to-sequence learning with one of the most influential models in natural language processing.
+Welcome to the Transformer Model Pytorch repository! This project showcases a custom implementation of the Transformer architecture using PyTorch. Dive into sequence-to-sequence learning with one of the most influential models in natural language processing.
 
 ## 🌟 Overview
 
-The Transformer model, introduced by Vaswani et al. in the paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762), has set a new standard in NLP by eliminating the need for recurrent networks. It leverages self-attention mechanisms to achieve unparalleled performance in tasks such as translation, text generation, and more.
+The Transformer model, introduced by Vaswani et al. in the paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762), has set a new standard in NLP by eliminating the need for recurrent networks. It leverages self-attention mechanisms to achieve great performance in tasks such as translation, text generation, and more.
 
 ### 🎯 Features
 
