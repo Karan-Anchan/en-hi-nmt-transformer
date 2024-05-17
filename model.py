@@ -38,3 +38,6 @@ class PositionalEncoding(nn.Module):
         # Register the Tensor in Buffer to Save Along the Model
         self.register_buffer('pe', pe)
 
+    def forward(self, x):
+        x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False)
+        return self.dropout(x)
