@@ -63,3 +63,6 @@ class FeedForwardBlock(nn.Module):
         self.linear_1 = nn.Linear(d_model, dff) # W1 + b1
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = nn.Linear(dff, d_model) # W2 + b2
+
+    def forward(self, x):
+        return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
