@@ -51,6 +51,7 @@ class PositionalEncoding(nn.Module):
                 x):
         
         x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False)
+        
         return self.dropout(x)
     
 class LayerNormalization(nn.Module):
@@ -68,6 +69,7 @@ class LayerNormalization(nn.Module):
         
         mean = x.mean(dim = -1, keepdim=True)
         std = x.std(dim = -1, keepdim=True)
+        
         return self.alpha * (x - mean)/ (std + self.eps) + self.bias
     
 class FeedForwardBlock(nn.Module):
@@ -185,6 +187,7 @@ class EncoderBlock(nn.Module):
         
         x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))
         x = self.residual_connections[1](x, self.feed_forward_block)
+        
         return x
     
 class Encoder(nn.Module):
@@ -202,7 +205,8 @@ class Encoder(nn.Module):
         
         for layer in self.layers:
             x = layer(x, mask)
-            return self.norm(x)
+            
+        return self.norm(x)
         
 class DecoderBlock(nn.Module):
 
@@ -227,6 +231,8 @@ class DecoderBlock(nn.Module):
         x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, tgt_mask))
         x = self.residual_connections[1](x, lambda x: self.cross_attention_block(x, encoder_output, encoder_output, src_mask))
         x = self.residual_connections[1](x, self.feed_forward_block)
+        
+        return x
 
 class Decoder(nn.Module):
 
@@ -245,6 +251,7 @@ class Decoder(nn.Module):
         
         for layer in self.layers:
             x = layer(x, encoder_output, src_mask, tgt_mask)
+            
         return self.norm(x)
     
 class ProjectionLayer(nn.Module):
@@ -283,3 +290,27 @@ class Transformer(nn.Module):
         self.src_pos = src_pos
         self.tgt_pos = tgt_pos
         self.projection_layer = projection_layer
+        
+    def encode(self, 
+               src, 
+               src_mask):
+        
+        src = self.src_embed(src)
+        src = self.src_pos(src)
+        
+        return self.encoder(src, 
+                            src_mask)
+    
+    def decode(self, 
+               src_mask,
+               encoder_output, 
+               tgt, 
+               tgt_mask):
+        
+        tgt = self.tgt_embed(tgt)
+        tgt = self.tgt_pos(tgt)
+        
+        return self.decoder(tgt, 
+                            encoder_output, 
+                            src_mask, 
+                            tgt_mask)
