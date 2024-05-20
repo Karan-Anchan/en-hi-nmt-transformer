@@ -4,7 +4,7 @@ import math
 
 class InputEmbeddings(nn.Module):
 
-    def __init__(self, d_model: int, vocab_size: int):
+    def __init__(self, d_model: int, vocab_size: int) -> None:
         super().__init__()
         self.d_model = d_model
         self.vocab_size = vocab_size
@@ -14,8 +14,7 @@ class InputEmbeddings(nn.Module):
         return self.embedding(x) * math.sqrt(self.d_model)
     
 class PositionalEncoding(nn.Module):
-
-    def __init__(self, d_model: int, seq_len: int, dropout: float):
+    def __init__(self, d_model: int, seq_len: int, dropout: float) -> None:
         super().__init__()
         self.d_model = d_model
         self.seq_len = seq_len
@@ -43,7 +42,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
     
 class LayerNormalization(nn.Module):
-    def __init__(self, eps: float = 10**-6):
+    def __init__(self, eps: float = 10**-6) -> None:
         super().__init__()
         self.eps = eps
         self.alpha = nn.Parameter(torch.ones(1)) # Multiplied
@@ -68,7 +67,7 @@ class FeedForwardBlock(nn.Module):
         return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
     
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model: int, h: int, dropout: float):
+    def __init__(self, d_model: int, h: int, dropout: float) -> None:
         super().__init__()
         self.d_model = d_model
         self.h = h
@@ -114,3 +113,12 @@ class MultiHeadAttention(nn.Module):
 
         # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
         return self.w_o(x)
+    
+class ResidualConnection(nn.Module):
+    def __init__(self, dropout: float) -> None:
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.norm = LayerNormalization()
+
+    def forward(self, x, sublayer):
+        return x + self.dropout(sublayer(self.norm(x)))
