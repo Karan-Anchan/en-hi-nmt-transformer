@@ -8,6 +8,13 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.pre_tokenizers import BertPreTokenizer
 
+def get_all_sentences(ds, lang):
+    
+    
+    
+    for item in ds:
+        yield item['translation'][lang]
+
 def get_or_build_tokenizer(config, ds, lang):
     
     
