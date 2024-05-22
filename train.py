@@ -9,7 +9,8 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.pre_tokenizers import BertPreTokenizer
 
-def get_all_sentences(ds, lang):
+def get_all_sentences(ds, 
+                      lang):
     
     """
     Generator function that yields sentences in a specified language from the dataset.
@@ -25,7 +26,9 @@ def get_all_sentences(ds, lang):
     for item in ds:
         yield item['translation'][lang]
 
-def get_or_build_tokenizer(config, ds, lang):
+def get_or_build_tokenizer(config, 
+                           ds, 
+                           lang):
     
     """
     Retrieves an existing tokenizer or trains a new tokenizer on the dataset if it doesn't exist.
