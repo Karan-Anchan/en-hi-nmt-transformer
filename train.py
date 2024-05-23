@@ -52,7 +52,9 @@ def get_or_build_tokenizer(config,
     """
     
     tokenizer_path = Path(config['tokenizer_file'].format(lang))
+    
     if not Path.exists(tokenizer_path):
+        
         tokenizer = Tokenizer(BPE(unk_token='[UNK]'))
         tokenizer.pre_tokenizer = BertPreTokenizer()
         trainer = BpeTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], 
@@ -61,6 +63,7 @@ def get_or_build_tokenizer(config,
         tokenizer.save(str(tokenizer_path))
     
     else:
+        
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
         
     return tokenizer
@@ -108,6 +111,7 @@ def get_ds(config):
     max_len_tgt = 0
     
     for item in ds_raw:
+        
         src_ids = tokenizer_src.encode(item['translation']).ids
         tgt_ids = tokenizer_tgt.encode(item['translation']).ids
         max_len_src = max(max_len_src, len(src_ids))
@@ -116,8 +120,13 @@ def get_ds(config):
     print(f'Max Length Of Source Sentence: {max_len_src}')
     print(f'Max Length Of Target Sentence: {max_len_tgt}')
     
-    train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
-    val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
+    train_dataloader = DataLoader(train_ds, 
+                                  batch_size=config['batch_size'], 
+                                  shuffle=True)
+    
+    val_dataloader = DataLoader(val_ds, 
+                                batch_size=1, 
+                                shuffle=True)
     
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
@@ -125,7 +134,22 @@ def get_model(config,
               vocab_src_len,
               vocab_tgt_len):
     
-    
+    """
+    Builds and returns a Transformer model based on the given configuration and vocabulary sizes.
+
+    This function uses the provided configuration settings and vocabulary sizes for the source
+    and target languages to build a Transformer model. The `build_transformer` function is called
+    with the appropriate parameters to create and initialize the model.
+
+    Args:
+        config (dict): A dictionary containing the configuration settings including sequence length
+                       and model dimensions.
+        vocab_src_len (int): The size of the source vocabulary.
+        vocab_tgt_len (int): The size of the target vocabulary.
+
+    Returns:
+        nn.Module: An instance of the Transformer model initialized with the given parameters.
+    """
     
     model = build_transformer(vocab_src_len,
                               vocab_tgt_len, 
@@ -137,11 +161,26 @@ def get_model(config,
 
 def train_model(config):
     
-    
+    """
+    Trains a Transformer model based on the given configuration.
+
+    This function sets up the training environment, including device configuration,
+    data loading, model initialization, and training loop. It also supports resuming
+    training from a checkpoint, logs training progress using TensorBoard, and saves
+    model checkpoints after each epoch.
+
+    Args:
+        config (dict): A dictionary containing configuration settings such as
+                       batch size, number of epochs, learning rate, sequence length,
+                       model dimensions, language settings, and file paths.
+
+    Returns:
+        None
+    """
     
     # Define The Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print('Using Device {device}')
+    print(f'Using Device {device}')
     
     Path(config['model_folder']).mkdir(parents=True, exist_ok=True)
     
