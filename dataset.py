@@ -5,7 +5,30 @@ from typing import Any
 
 class BilingualDataset(Dataset):
     
-    
+    """
+    A PyTorch Dataset class for handling bilingual datasets.
+
+    This dataset handles bilingual text pairs, applies tokenization,
+    and generates inputs and masks for encoder-decoder models.
+
+    Args:
+        ds (Dataset): The dataset containing translation pairs.
+        tokenizer_src (Tokenizer): The tokenizer for the source language.
+        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
+        src_lang (str): The source language code.
+        tgt_lang (str): The target language code.
+        seq_len (int): The fixed sequence length for inputs and outputs.
+
+    Attributes:
+        ds (Dataset): The dataset containing translation pairs.
+        tokenizer_src (Tokenizer): The tokenizer for the source language.
+        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
+        src_lang (str): The source language code.
+        tgt_lang (str): The target language code.
+        sos_token (Tensor): The tensor representing the start-of-sequence token.
+        pad_token (Tensor): The tensor representing the padding token.
+        eos_token (Tensor): The tensor representing the end-of-sequence token.
+    """
     
     def __init__(self, 
                  ds, 
@@ -14,8 +37,6 @@ class BilingualDataset(Dataset):
                  src_lang, 
                  tgt_lang, 
                  seq_len) -> None:
-        
-        
         
         super().__init__()
         self.ds = ds
@@ -30,14 +51,26 @@ class BilingualDataset(Dataset):
         
     def __len__(self):
         
-        
+        """
+        Returns the total number of samples in the dataset.
+
+        Returns:
+            int: The number of samples in the dataset.
+        """
         
         return len(self.ds)
     
     def __getitem__(self, index: Any) -> Any:
         
-        
-        
+        """
+        Retrieves a single data point from the dataset at the specified index.
+
+        Args:
+            index (int): The index of the data point to retrieve.
+
+        Returns:
+            dict: A dictionary containing encoder inputs, decoder inputs, masks, labels, and original texts.
+        """
         
         src_target_pair = self.ds[index]
         src_text = src_target_pair['translation'][self.src_lang]
@@ -95,5 +128,16 @@ class BilingualDataset(Dataset):
         }
         
 def causal_mask(size):
+    
+    """
+    Creates a causal mask for decoder inputs to prevent attention to future tokens.
+
+    Args:
+        size (int): The size of the mask (sequence length).
+
+    Returns:
+        Tensor: A causal mask tensor of shape (1, size, size).
+    """
+    
     mask = torch.triu(torch.ones(1, size, size), diagonal=1).type(torch.int)
     return mask == 0
