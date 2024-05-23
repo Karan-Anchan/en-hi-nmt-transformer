@@ -18,6 +18,74 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import warnings
 
+def greedy_decode(model, 
+                  source, 
+                  source_mask, 
+                  tokenizer_src, 
+                  tokenizer_tgt, 
+                  max_len, 
+                  device):
+    
+    """
+    Performs greedy decoding for sequence generation using a Transformer model.
+
+    This function generates a target sequence by selecting the token with the highest
+    probability at each step until an end-of-sequence token is generated or the maximum
+    length is reached. It uses the encoder output and iteratively feeds the generated
+    tokens back into the decoder.
+
+    Args:
+        model (nn.Module): The Transformer model used for encoding and decoding.
+        source (torch.Tensor): The source sequence tensor.
+        source_mask (torch.Tensor): The mask tensor for the source sequence.
+        tokenizer_src (Tokenizer): The tokenizer for the source language.
+        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
+        max_len (int): The maximum length of the generated sequence.
+        device (torch.device): The device to run the decoding on (CPU or GPU).
+
+    Returns:
+        torch.Tensor: The generated target sequence tensor.
+    """
+    
+    sos_idx = tokenizer_tgt.token_to_id(['[SOS]'])
+    eos_idx = tokenizer_tgt.token_to_id(['[EOS]'])
+    
+    # Precompute The Encoder Output And Reuse For Every Token From Decoder
+    encoder_output = model.encode(source, 
+                                  source_mask)
+    
+    # Initialize Decoder Input With SOS Token
+    decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device)
+    
+    while True:
+        
+        if decoder_input.size(1) == max_len:
+            break
+        
+        # Build Mask For Target (Decoder Input)
+        decoder_mask = causal_mask(decoder_input.size(1)).type_as(source_mask).to(device)
+        
+        # Calculate The Output Of Decoder
+        out = model.decode(encoder_output, 
+                           source_mask, 
+                           decoder_input, 
+                           decoder_mask)
+        
+        # Get Next Token
+        prob = model.project(out[:, -1])
+        
+        # Select Token With Max Probability (Greedy Search)
+        _, next_token = torch.max(prob, 
+                                  dim=1)
+        decoder_input = torch.cat([decoder_input, 
+                                   torch.empty(1, 1).type_as(source).fill_(next_token.item()).to(device)], 
+                                  dim=1)
+        
+        if next_token == eos_idx:
+            break
+        
+    return decoder_input.squeeze(0)
+
 def get_all_sentences(ds, 
                       lang):
     
