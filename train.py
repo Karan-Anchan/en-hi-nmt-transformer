@@ -97,7 +97,29 @@ def run_validation(model,
                    writer, 
                    num_examples=2):
     
-    
+    """
+    Runs validation on the provided model and dataset, prints sample translations, and logs evaluation metrics.
+
+    This function evaluates the model on a validation dataset. It uses greedy decoding to generate predictions
+    for the source sequences, compares them with the target sequences, and prints sample translations to the console.
+    It also computes and logs the Character Error Rate (CER), Word Error Rate (WER), and BLEU score using the
+    provided writer for TensorBoard logging.
+
+    Args:
+        model (nn.Module): The Transformer model to be evaluated.
+        validation_ds (Dataset): The validation dataset containing source and target sequences.
+        tokenizer_src (Tokenizer): The tokenizer for the source language.
+        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
+        max_len (int): The maximum length of the generated sequence.
+        device (torch.device): The device to run the validation on (CPU or GPU).
+        print_msg (callable): A function to print messages to the console.
+        global_step (int): The global step count for logging.
+        writer (SummaryWriter): The TensorBoard writer for logging metrics.
+        num_examples (int, optional): The number of validation examples to print and evaluate. Default is 2.
+
+    Returns:
+        None
+    """
     
     model.eval()
     count = 0
