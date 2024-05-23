@@ -39,6 +39,7 @@ class BilingualDataset(Dataset):
                  seq_len) -> None:
         
         super().__init__()
+        self.seq_len = seq_len
         self.ds = ds
         self.tokenizer_src = tokenizer_src
         self.tokenizer_tgt = tokenizer_tgt

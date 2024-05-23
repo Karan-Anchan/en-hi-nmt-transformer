@@ -16,6 +16,7 @@ from tokenizers.pre_tokenizers import BertPreTokenizer
 from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
+import warnings
 
 def get_all_sentences(ds, 
                       lang):
@@ -212,3 +213,8 @@ def train_model(config):
             'optimizer_state_dict' : optimizer.state_dict(),
             'global_step' : global_step,
         }, model_filename)
+        
+if __name__ == '__main__':
+    # warnings.filterwarnings('ignore')
+    config = get_config()
+    train_model(config)
