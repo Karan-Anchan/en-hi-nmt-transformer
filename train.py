@@ -17,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
 import warnings
+import torchmetrics
 
 def greedy_decode(model, 
                   source, 
@@ -47,7 +48,7 @@ def greedy_decode(model,
         torch.Tensor: The generated target sequence tensor.
     """
     
-    sos_idx = tokenizer_tgt.token_to_id(['[SOS]'])
+    sos_idx = tokenizer_src.token_to_id(['[SOS]'])
     eos_idx = tokenizer_tgt.token_to_id(['[EOS]'])
     
     # Precompute The Encoder Output And Reuse For Every Token From Decoder
@@ -92,7 +93,7 @@ def run_validation(model,
                    tokenizer_tgt, 
                    max_len, device, 
                    print_msg, 
-                   global_state, 
+                   global_step, 
                    writer, 
                    num_examples=2):
     
@@ -113,6 +114,53 @@ def run_validation(model,
             encoder_mask = batch['encoder_mask'].to(device)
             
             assert encoder_input.size(0) == 1, "Batch Size Must Be 1 For Validation"
+            
+            model_out = greedy_decode(model, 
+                                      encoder_input,
+                                      encoder_mask,
+                                      tokenizer_src, 
+                                      tokenizer_tgt, 
+                                      max_len, 
+                                      device)
+            
+            source_text = batch['src_text'][0]
+            target_text = batch['tgt_text'][0]
+            model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
+            
+            source_texts.append(source_text)
+            expected.append(target_text)
+            predicted.append(model_out_text)
+            
+            # Print It To Console
+            print_msg('-' * console_width)
+            print_msg(f'SOURCE: {source_text}')
+            print_msg(f'TARGET: {target_text}')
+            print_msg(f'PREDICTED: {model_out_text}')
+            
+            if count == num_examples:
+                print_msg('-'*console_width)
+                break
+            
+    if writer:
+        
+        # Evaluate the character error rate
+        # Compute the char error rate 
+        metric = torchmetrics.CharErrorRate()
+        cer = metric(predicted, expected)
+        writer.add_scalar('validation cer', cer, global_step)
+        writer.flush()
+
+        # Compute the word error rate
+        metric = torchmetrics.WordErrorRate()
+        wer = metric(predicted, expected)
+        writer.add_scalar('validation wer', wer, global_step)
+        writer.flush()
+
+        # Compute the BLEU metric
+        metric = torchmetrics.BLEUScore()
+        bleu = metric(predicted, expected)
+        writer.add_scalar('validation BLEU', bleu, global_step)
+        writer.flush()
 
 def get_all_sentences(ds, 
                       lang):
