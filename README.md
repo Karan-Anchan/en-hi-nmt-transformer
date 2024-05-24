@@ -116,15 +116,21 @@ Evaluate the model using key metrics:
 
 - **Character Error Rate (CER)**: CER measures the percentage of characters that are incorrectly predicted. Lower CER indicates better performance.
 
+```math
 \[ \text{CER} = \left( \frac{\text{Number of Character Errors}}{\text{Total Number of Characters}} \right) \times 100 \]
+```
 
 - **Word Error Rate (WER)**: WER measures the percentage of words that are incorrectly predicted. Lower WER indicates better performance. It considers substitutions, insertions, and deletions of words.
 
+```math
 \[ \text{WER} = \left( \frac{\text{Substitutions} + \text{Insertions} + \text{Deletions}}{\text{Total Number of Words}} \right) \times 100 \]
+```
 
 - **BLEU Score**: BLEU (Bilingual Evaluation Understudy) Score is a metric for evaluating the quality of text that has been machine-translated from one language to another. Higher BLEU scores indicate better performance.
 
+```math
 \[ \text{BLEU} = \text{BP} \cdot \exp \left( \sum_{n=1}^{N} w_n \log p_n \right) \]
+```
 
 where:
 - \(\text{BP}\) is the Brevity Penalty
