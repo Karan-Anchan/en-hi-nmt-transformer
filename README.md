@@ -65,31 +65,6 @@ Evaluate the trained model's performance:
 python evaluate.py --model_path /path/to/saved/model --data_path /path/to/your/dataset
 ```
 
-### Example Usage
-
-Here's how to use the `InputEmbeddings` class in the model:
-
-```python
-import torch
-import torch.nn as nn
-from input_embeddings import InputEmbeddings
-
-# Example parameters
-d_model = 512
-vocab_size = 10000
-
-# Initialize the input embeddings
-input_embeddings = InputEmbeddings(d_model, vocab_size)
-
-# Example input sequence of token indices (batch size = 1, sequence length = 4)
-input_tokens = torch.tensor([[1, 5, 3, 7]])
-
-# Get the embeddings for the input tokens
-embedded_tokens = input_embeddings(input_tokens)
-print(embedded_tokens)
-print(embedded_tokens.shape)
-```
-
 ## 🏗️ Model Architecture
 
 Our Transformer model includes the following key components:
@@ -139,9 +114,35 @@ encoder_decoder_attention_maps.display()
 
 Evaluate your model using key metrics:
 
-- **Character Error Rate (CER)**
-- **Word Error Rate (WER)**
-- **BLEU Score**
+- **Character Error Rate (CER)**: CER measures the percentage of characters that are incorrectly predicted. Lower CER indicates better performance.
+
+CER=( 
+Total Number of Characters
+Number of Character Errors
+​
+ )×100
+
+- **Word Error Rate (WER)**: WER measures the percentage of words that are incorrectly predicted. Lower WER indicates better performance. It considers substitutions, insertions, and deletions of words.
+
+WER=( 
+Total Number of Words
+Substitutions+Insertions+Deletions
+​
+ )×100
+
+- **BLEU Score**: BLEU (Bilingual Evaluation Understudy) Score is a metric for evaluating the quality of text that has been machine-translated from one language to another. Higher BLEU scores indicate better performance.
+
+BLEU=BP⋅exp(∑ 
+n=1
+N
+​
+ w 
+n
+​
+ logp 
+n
+​
+ )
 
 These metrics provide insights into the model's performance in translating and understanding text.
 
