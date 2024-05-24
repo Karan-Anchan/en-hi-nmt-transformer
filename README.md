@@ -105,12 +105,52 @@ Our Transformer model includes the following key components:
 
 To better understand the model's inner workings, use our visualization tools to inspect attention weights and training metrics.
 
+#### Encoder Self-Attention
+
+Visualize the self-attention mechanisms in the encoder layers:
+
+```python
+encoder_self_attention_maps = get_all_attention_maps(
+    "encoder", layers, heads, encoder_input_tokens, encoder_input_tokens, min(20, sentence_len))
+encoder_self_attention_maps.display()
+```
+
+#### Decoder Self-Attention
+
+Visualize the self-attention mechanisms in the decoder layers:
+
+```python
+decoder_self_attention_maps = get_all_attention_maps(
+    "decoder", layers, heads, decoder_input_tokens, decoder_input_tokens, min(20, sentence_len))
+decoder_self_attention_maps.display()
+```
+
+#### Encoder-Decoder Attention
+
+Visualize the attention mechanisms between the encoder and decoder layers:
+
+```python
+encoder_decoder_attention_maps = get_all_attention_maps(
+    "encoder-decoder", layers, heads, encoder_input_tokens, decoder_input_tokens, min(20, sentence_len))
+encoder_decoder_attention_maps.display()
+```
+
+## 📈 Metrics
+
+Evaluate your model using key metrics:
+
+- **Character Error Rate (CER)**
+- **Word Error Rate (WER)**
+- **BLEU Score**
+
+These metrics provide insights into the model's performance in translating and understanding text.
+
 ## 🙏 Acknowledgments
 
 This project draws inspiration from the original Transformer paper and various open-source implementations. We extend our gratitude to the PyTorch community for their comprehensive resources and tutorials.
 
 ## 📜 License
 
-xxx
+This project is licensed under the MIT License. See the LICENSE file for more details.
 
 ---
