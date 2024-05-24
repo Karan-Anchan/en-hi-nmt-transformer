@@ -9,9 +9,9 @@ from config import get_config, get_weights_file_path
 
 from datasets import load_dataset, concatenate_datasets
 from tokenizers import Tokenizer
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
-from tokenizers.pre_tokenizers import BertPreTokenizer
+from tokenizers.models import WordLevel
+from tokenizers.trainers import WordLevelTrainer
+from tokenizers.pre_tokenizers import Whitespace
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -221,9 +221,9 @@ def get_or_build_tokenizer(config,
     
     if not Path.exists(tokenizer_path):
         
-        tokenizer = Tokenizer(BPE(unk_token='[UNK]'))
-        tokenizer.pre_tokenizer = BertPreTokenizer()
-        trainer = BpeTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], 
+        tokenizer = Tokenizer(WordLevel(unk_token='[UNK]'))
+        tokenizer.pre_tokenizer = Whitespace()
+        trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], 
                              min_frequency=2)
         tokenizer.train_from_iterator(get_all_sentences(ds, lang), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
@@ -278,8 +278,8 @@ def get_ds(config):
     
     for item in ds_raw:
         
-        src_ids = tokenizer_src.encode(item['translation']).ids
-        tgt_ids = tokenizer_tgt.encode(item['translation']).ids
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
         max_len_src = max(max_len_src, len(src_ids))
         max_len_tgt = max(max_len_tgt, len(tgt_ids))
         
