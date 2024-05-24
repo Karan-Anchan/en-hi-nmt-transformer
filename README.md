@@ -23,6 +23,7 @@ Before you begin, ensure you have the following installed:
 - PyTorch 1.8.0 or higher
 - NumPy
 - Matplotlib (optional, for visualization)
+- Altair (for advanced visualizations)
 
 ## 🔧 Installation
 
