@@ -112,37 +112,24 @@ encoder_decoder_attention_maps.display()
 
 ## 📈 Metrics
 
-Evaluate your model using key metrics:
+Evaluate the model using key metrics:
 
 - **Character Error Rate (CER)**: CER measures the percentage of characters that are incorrectly predicted. Lower CER indicates better performance.
 
-CER=( 
-Total Number of Characters
-Number of Character Errors
-​
- )×100
+\[ \text{CER} = \left( \frac{\text{Number of Character Errors}}{\text{Total Number of Characters}} \right) \times 100 \]
 
 - **Word Error Rate (WER)**: WER measures the percentage of words that are incorrectly predicted. Lower WER indicates better performance. It considers substitutions, insertions, and deletions of words.
 
-WER=( 
-Total Number of Words
-Substitutions+Insertions+Deletions
-​
- )×100
+\[ \text{WER} = \left( \frac{\text{Substitutions} + \text{Insertions} + \text{Deletions}}{\text{Total Number of Words}} \right) \times 100 \]
 
 - **BLEU Score**: BLEU (Bilingual Evaluation Understudy) Score is a metric for evaluating the quality of text that has been machine-translated from one language to another. Higher BLEU scores indicate better performance.
 
-BLEU=BP⋅exp(∑ 
-n=1
-N
-​
- w 
-n
-​
- logp 
-n
-​
- )
+\[ \text{BLEU} = \text{BP} \cdot \exp \left( \sum_{n=1}^{N} w_n \log p_n \right) \]
+
+where:
+- \(\text{BP}\) is the Brevity Penalty
+- \(p_n\) is the precision of n-grams
+- \(w_n\) is the weight for n-grams, usually \(w_n = \frac{1}{N}\)
 
 These metrics provide insights into the model's performance in translating and understanding text.
 
