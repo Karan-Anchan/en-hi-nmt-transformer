@@ -7,7 +7,7 @@ from dataset import BilingualDataset, causal_mask
 from model import build_transformer
 from config import get_config, get_weights_file_path
 
-from datasets import load_dataset, concatenate_datasets
+from datasets import load_dataset, Dataset
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.trainers import WordLevelTrainer
