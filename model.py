@@ -840,10 +840,10 @@ class Transformer(nn.Module):
                             src_mask)
     
     def decode(self, 
-               src_mask,
-               encoder_output, 
-               tgt, 
-               tgt_mask):
+               encoder_output: torch.Tensor,
+               src_mask: torch.Tensor,
+               tgt: torch.Tensor, 
+               tgt_mask: torch.Tensor):
         
         """
         Decodes the target sequence using the decoder and encoder output.
