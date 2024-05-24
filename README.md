@@ -69,12 +69,17 @@ python evaluate.py --model_path /path/to/saved/model --data_path /path/to/your/d
 
 Our Transformer model includes the following key components:
 
-1. **Input Embeddings**: Converts token indices to dense vectors.
-2. **Positional Encoding**: Adds positional information to embeddings, helping the model understand the order of tokens.
-3. **Multi-Head Self-Attention**: Allows the model to focus on different parts of the input sequence.
-4. **Feed-Forward Neural Network**: Introduces non-linearity and complexity to the model.
-5. **Encoder and Decoder Layers**: Stacks of attention and feed-forward layers for complex representations.
-6. **Output Linear Layer**: Maps the decoder output to the target vocabulary size.
+1. **🔤 Input Embeddings**: These transform token indices into dense vectors, facilitating the model's understanding of textual input.
+
+2. **📍 Positional Encoding**: By imbuing embeddings with positional information, this component ensures the model comprehends the sequential order of tokens within the input.
+
+3. **🎭 Multi-Head Self-Attention**: Enabling nuanced focus across diverse segments of the input sequence, this mechanism enhances the model's ability to discern context.
+
+4. **💥 Feed-Forward Neural Network**: Infusing the model with non-linearity and intricacy, this network contributes to its capacity for sophisticated computations.
+
+5. **🔁 Encoder and Decoder Layers**: Constituting stacks of attention and feed-forward layers, these elements play a pivotal role in constructing intricate representations of input data.
+
+6. **🎯 Output Linear Layer**: Responsible for the final stage of transformation, this layer maps the decoder's output to match the size of the target vocabulary, ensuring alignment with desired linguistic outcomes.
 
 ### 📊 Visualization
 
