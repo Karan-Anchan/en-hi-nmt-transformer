@@ -409,18 +409,17 @@ def train_model(config):
             optimizer.step()
             optimizer.zero_grad()
             
-            if global_step % 5 == 0:
-                run_validation(model, 
-                            val_dataloader, 
-                            tokenizer_src, 
-                            tokenizer_tgt, 
-                            config['seq_len'], 
-                            device,
-                            lambda msg: batch_iterator.write(msg),
-                            global_step,
-                            writer)
-            
             global_step += 1
+            
+        run_validation(model, 
+                           val_dataloader, 
+                           tokenizer_src, 
+                           tokenizer_tgt, 
+                           config['seq_len'], 
+                           device,
+                           lambda msg: batch_iterator.write(msg),
+                           global_step,
+                           writer)
             
         # Save The Model At The End Of Every Epoch
         model_filename = get_weights_file_path(config, f'{epoch:02d}')
