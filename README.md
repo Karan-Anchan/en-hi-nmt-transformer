@@ -137,10 +137,10 @@ Evaluate the model using key metrics:
 ```math
 \text{BLEU} = \text{BP} \cdot \exp \left( \sum_{n=1}^{N} w_n \log p_n \right)
 ```
-    where:
-    - $\(\text{BP}\)$ is the Brevity Penalty
-    - $\(p_n\)$ is the precision of n-grams
-    - $\(w_n\)$ is the weight for n-grams, usually $\(w_n = \frac{1}{N}\)$
+where:
+- $\(\text{BP}\)$ is the Brevity Penalty
+- $\(p_n\)$ is the precision of n-grams
+- $\(w_n\)$ is the weight for n-grams, usually $\(w_n = \frac{1}{N}\)$
 
 These metrics provide insights into the model's performance in translating and understanding text.
 
