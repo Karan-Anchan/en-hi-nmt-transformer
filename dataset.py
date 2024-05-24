@@ -83,7 +83,7 @@ class BilingualDataset(Dataset):
         enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
         
-        if enc_num_padding_tokens > 0 or dec_num_padding_tokens < 0:
+        if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
             raise ValueError('Sentence Is Too Long')
         
         # Add SOS and EOS as well as PAD tokens to the source text
