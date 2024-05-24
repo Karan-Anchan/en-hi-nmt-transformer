@@ -91,7 +91,8 @@ def run_validation(model,
                    validation_ds, 
                    tokenizer_src, 
                    tokenizer_tgt, 
-                   max_len, device, 
+                   max_len, 
+                   device, 
                    print_msg, 
                    global_step, 
                    writer, 
@@ -155,9 +156,9 @@ def run_validation(model,
             
             # Print It To Console
             print_msg('-' * console_width)
-            print_msg(f'SOURCE: {source_text}')
-            print_msg(f'TARGET: {target_text}')
-            print_msg(f'PREDICTED: {model_out_text}')
+            print_msg(f"{f'SOURCE: ':>12}{source_text}")
+            print_msg(f"{f'TARGET: ':>12}{target_text}")
+            print_msg(f"{f'PREDICTED: ':>12}{model_out_text}")
             
             if count == num_examples:
                 print_msg('-'*console_width)
@@ -340,7 +341,7 @@ def get_model(config,
                               vocab_tgt_len, 
                               config['seq_len'],
                               config['seq_len'],
-                              config['d_model'])
+                              d_model=config['d_model'])
     
     return model
 
@@ -391,10 +392,11 @@ def train_model(config):
     
     for epoch in range(initial_epoch, config['num_epochs']):
         
+        torch.cuda.empty_cache()
+        model.train()
         batch_iterator = tqdm(train_dataloader, desc=f'Processing Epoch {epoch:02d}')
         for batch in batch_iterator:
             
-            model.train()
             encoder_input = batch['encoder_input'].to(device) # (B, seq_len)
             decoder_input = batch['decoder_input'].to(device) # (B, seq_len)
             encoder_mask = batch['encoder_mask'].to(device) # (B, 1, 1, seq_len)
@@ -426,7 +428,7 @@ def train_model(config):
             
             # Update The Weights
             optimizer.step()
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             
             global_step += 1
             
