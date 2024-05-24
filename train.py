@@ -234,6 +234,19 @@ def get_or_build_tokenizer(config,
         
     return tokenizer
 
+def filter_long_sentences(dataset):
+    
+    
+    
+    filtered_data = []
+    for item in tqdm(dataset, desc="Filtering long sentences"):
+        en_len = len(item['translation']['en'].split())
+        hi_len = len(item['translation']['hi'].split())
+        if en_len <= 500 and hi_len <= 500:
+            filtered_data.append(item)
+            
+    return filtered_data
+
 def get_ds(config):
     
     """
@@ -247,8 +260,15 @@ def get_ds(config):
         tuple: A tuple containing the training and validation datasets, and the tokenizers for source and target languages.
     """
     
-    ds_splitted = load_dataset('cfilt/iitb-english-hindi')
-    ds_raw = concatenate_datasets([ds_splitted['train'], ds_splitted['test'], ds_splitted['validation']])
+    ds_unfilter = load_dataset('cfilt/iitb-english-hindi', split='train')
+
+    filtered_train={}
+    
+    # Filter long sentences in each split
+    filtered_train['translation'] = filter_long_sentences(ds_unfilter)
+
+    # Create new datasets from filtered data
+    ds_raw = Dataset.from_dict(filtered_train)
     
     # Build Tokenizer
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
