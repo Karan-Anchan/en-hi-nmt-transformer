@@ -48,8 +48,8 @@ def greedy_decode(model,
         torch.Tensor: The generated target sequence tensor.
     """
     
-    sos_idx = tokenizer_src.token_to_id(['[SOS]'])
-    eos_idx = tokenizer_tgt.token_to_id(['[EOS]'])
+    sos_idx = tokenizer_src.token_to_id('[SOS]')
+    eos_idx = tokenizer_tgt.token_to_id('[EOS]')
     
     # Precompute The Encoder Output And Reuse For Every Token From Decoder
     encoder_output = model.encode(source, 
