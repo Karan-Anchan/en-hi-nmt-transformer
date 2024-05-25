@@ -296,6 +296,8 @@ def get_ds(config):
     # Initialize lists to store filtered src_ids and tgt_ids
     src_ids = []
     tgt_ids = []
+    max_len_src=0
+    max_len_tgt=0
 
     # Iterate through the raw dataset
     for item in ds_raw:
