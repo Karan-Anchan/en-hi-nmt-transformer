@@ -304,6 +304,7 @@ def get_ds(config):
         # Encode source and target sentences
         unfiltered_src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
         unfiltered_tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
+        print(unfiltered_src_ids)
         
         # Check if the length of src_ids and tgt_ids is less than or equal to 150
         if len(unfiltered_src_ids) <= 150 and len(unfiltered_tgt_ids) <= 150:
