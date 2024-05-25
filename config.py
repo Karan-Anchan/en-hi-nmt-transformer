@@ -14,7 +14,7 @@ def get_config():
     """
     
     return {
-        "batch_size" : 8,
+        "batch_size" : 16,
         "num_epochs" : 50,
         "lr" : 10**-4,
         "seq_len": 150,
