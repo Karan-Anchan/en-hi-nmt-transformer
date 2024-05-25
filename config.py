@@ -14,10 +14,10 @@ def get_config():
     """
     
     return {
-        "batch_size" : 16,
+        "batch_size" : 8,
         "num_epochs" : 30,
         "lr" : 10**-4,
-        "seq_len": 150,
+        "seq_len": 260,
         "d_model": 512,
         "lang_src" : "en",
         "lang_tgt" : "hi",
