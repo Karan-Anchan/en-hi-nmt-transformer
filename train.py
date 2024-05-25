@@ -244,7 +244,7 @@ def filter_long_sentences(dataset_split):
         
         en_len = len(item['translation']['en'].split())
         hi_len = len(item['translation']['hi'].split())
-        if en_len <= 50 and hi_len <= 50:
+        if en_len <= 30 and hi_len <= 30:
             filtered_data['translation'].append(item['translation'])
             
     return filtered_data
