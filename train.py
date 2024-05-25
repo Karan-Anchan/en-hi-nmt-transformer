@@ -244,7 +244,7 @@ def filter_long_sentences(dataset_split):
         
         en_len = len(item['translation']['en'].split())
         hi_len = len(item['translation']['hi'].split())
-        if en_len <= 15 and hi_len <= 15:
+        if en_len <= 10 and hi_len <= 10:
             filtered_data['translation'].append(item['translation'])
             
     return filtered_data
@@ -293,24 +293,18 @@ def get_ds(config):
                                 config['lang_tgt'],
                                 config['seq_len'])
     
-    # Initialize lists to store filtered src_ids and tgt_ids
-    src_ids = []
-    tgt_ids = []
-
-    # Iterate through the raw dataset
+    max_len_src = 0
+    max_len_tgt = 0
+    
     for item in ds_raw:
-        # Encode source and target sentences
-        unfiltered_src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
-        unfiltered_tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
         
-        # Check if the length of src_ids and tgt_ids is less than or equal to 150
-        if len(unfiltered_src_ids) <= 150 and len(unfiltered_tgt_ids) <= 150:
-            # If length is within the limit, append src_ids and tgt_ids to filtered lists
-            src_ids.append(src_ids)
-            tgt_ids.append(tgt_ids)
-
-    # Print the length of filtered lists
-    print("Number of items after filtering:", len(src_ids))
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
+        max_len_src = max(max_len_src, len(src_ids))
+        max_len_tgt = max(max_len_tgt, len(tgt_ids))
+        
+    print(f'Max Length Of Source Sentence: {max_len_src}')
+    print(f'Max Length Of Target Sentence: {max_len_tgt}')
     
     train_dataloader = DataLoader(train_ds, 
                                   batch_size=config['batch_size'], 
