@@ -296,15 +296,12 @@ def get_ds(config):
     # Initialize lists to store filtered src_ids and tgt_ids
     src_ids = []
     tgt_ids = []
-    max_len_src=0
-    max_len_tgt=0
 
     # Iterate through the raw dataset
     for item in ds_raw:
         # Encode source and target sentences
         unfiltered_src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
         unfiltered_tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
-        print(unfiltered_src_ids)
         
         # Check if the length of src_ids and tgt_ids is less than or equal to 150
         if len(unfiltered_src_ids) <= 150 and len(unfiltered_tgt_ids) <= 150:
@@ -314,13 +311,6 @@ def get_ds(config):
 
     # Print the length of filtered lists
     print("Number of items after filtering:", len(src_ids))
-
-    # Update max_len_src and max_len_tgt if necessary
-    max_len_src = max(max_len_src, max(len(ids) for ids in src_ids))
-    max_len_tgt = max(max_len_tgt, max(len(ids) for ids in tgt_ids))
-        
-    print(f'Max Length Of Source Sentence: {max_len_src}')
-    print(f'Max Length Of Target Sentence: {max_len_tgt}')
     
     train_dataloader = DataLoader(train_ds, 
                                   batch_size=config['batch_size'], 
