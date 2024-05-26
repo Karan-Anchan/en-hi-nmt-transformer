@@ -8,7 +8,7 @@ Welcome to the Transformer Model Pytorch repository! This project showcases a cu
 
 The Transformer model unveiled in the revolutionary paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762) by Vaswani et al., has transformed the landscape of NLP. Ditching traditional recurrent architectures, it relies on powerful self-attention mechanisms to excel in various tasks. This repository focuses on utilizing the Transformer for English to Hindi translation, demonstrating its prowess in handling complex linguistic structures across different languages. Dive into the core of Transformer architecture, exploring its encoder-decoder framework and how it processes language pairs effectively.
 
-### 🎉 Features
+## 🎉 Features
 
 - **🔥 Pure PyTorch Implementation:** Delve deep into the Transformer's intricacies with a from-scratch implementation that lets you explore every layer, every neuron.
 - **🛠️ Modular Design:** Tinker with key components like multi-head self-attention and positional encoding. Our design lets you adapt and expand parts effortlessly.
