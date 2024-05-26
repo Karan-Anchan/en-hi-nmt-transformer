@@ -151,10 +151,10 @@ These metrics provide insights into the model's performance in translating and u
 
 ## 🙏 Acknowledgments
 
-This project draws inspiration from the original Transformer paper and various open-source implementations. We extend our gratitude to the PyTorch community for their comprehensive resources and tutorials.
+This project draws inspiration from the original Transformer paper and various open-source implementations. We thank the PyTorch community for their comprehensive resources and tutorials.
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the LICENSE file for more details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/KaranAnchan/Transformers_Pytorch/blob/main/LICENSE) file for more details.
 
 ---
