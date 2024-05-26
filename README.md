@@ -4,16 +4,17 @@
 
 Welcome to the Transformer Model Pytorch repository! This project showcases a custom implementation of the Transformer architecture using PyTorch. Dive into sequence-to-sequence learning with one of the most influential models in natural language processing.
 
-## 🌟 Overview
+## 🌐 Overview
 
-The Transformer model, introduced by Vaswani et al. in the paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762), has set a new standard in NLP by eliminating the need for recurrent networks. It leverages self-attention mechanisms to achieve great performance in tasks such as translation, text generation, and more.
+The Transformer model unveiled in the revolutionary paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762) by Vaswani et al., has transformed the landscape of NLP. Ditching traditional recurrent architectures, it relies on powerful self-attention mechanisms to excel in various tasks. This repository focuses on utilizing the Transformer for English to Hindi translation, demonstrating its prowess in handling complex linguistic structures across different languages. Dive into the core of Transformer architecture, exploring its encoder-decoder framework and how it processes language pairs effectively.
 
-### 🎯 Features
+### 🎉 Features
 
-- **Pure PyTorch Implementation**: Understand the internals of the Transformer model by examining every detail of its implementation.
-- **Modular Design**: Easily modify and extend components like multi-head self-attention, positional encoding, and more.
-- **Comprehensive Training and Evaluation Scripts**: Train and test the model on your custom datasets with minimal setup.
-- **Visualization Tools**: Visualize attention mechanisms and training progress.
+- **🔥 Pure PyTorch Implementation:** Delve deep into the Transformer's intricacies with a from-scratch implementation that lets you explore every layer, every neuron.
+- **🛠️ Modular Design:** Tinker with key components like multi-head self-attention and positional encoding. Our design lets you adapt and expand parts effortlessly.
+- **📊 Comprehensive Training and Evaluation Scripts:** Jump right into training with pre-written scripts, making it easy to start translating between English and Hindi or assess your model’s performance.
+- **👁️ Visualization Tools:** Get a graphical view of what's happening under the hood. Our tools let you watch the attention mechanisms at work and monitor training progress in real-time.
+- **🌍 Bilingual Tokenization Support:** Tailored for the nuances of English and Hindi, ensuring accurate and effective handling of linguistic elements unique to both languages.
 
 ## 📋 Prerequisites
 
