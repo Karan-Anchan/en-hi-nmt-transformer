@@ -98,7 +98,7 @@ Evaluate the model using key metrics:
 \text{CER} = \left( \frac{\text{Number of Character Errors}}{\text{Total Number of Characters}} \right) \times 100
 ```
 
-![CER](validation-cer.svg)
+![CER](validation-cer.png)
 
 - **Word Error Rate (WER)**:
 
@@ -108,11 +108,11 @@ Evaluate the model using key metrics:
 \text{WER} = \left( \frac{\text{Substitutions} + \text{Insertions} + \text{Deletions}}{\text{Total Number of Words}} \right) \times 100
 ```
 
-![WER](validation-wer.svg)
+![WER](validation-wer.png)
 
 - **Training Loss**:
 
-![Training Loss](train-loss.svg)
+![Training Loss](train-loss.png)
 
 ## 🙏 Acknowledgments
 
