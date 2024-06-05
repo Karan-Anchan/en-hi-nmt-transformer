@@ -86,30 +86,6 @@ Visualize the attention mechanisms between the encoder and decoder layers:
 
 ![Encoder-Decoder Cross-Attention](encoder-decoder.png)
 
-## 📈 Metrics
-
-Evaluate the model using key metrics:
-
-- **Character Error Rate (CER)**:
-
-    CER measures the percentage of characters that are incorrectly predicted. Lower CER indicates better performance.
-
-```math
-\text{CER} = \left( \frac{\text{Number of Character Errors}}{\text{Total Number of Characters}} \right) \times 100
-```
-
-![CER](validation-cer.png)
-
-- **Word Error Rate (WER)**:
-
-    WER measures the percentage of words that are incorrectly predicted. Lower WER indicates better performance. It considers substitutions, insertions, and deletions of words.
-
-```math
-\text{WER} = \left( \frac{\text{Substitutions} + \text{Insertions} + \text{Deletions}}{\text{Total Number of Words}} \right) \times 100
-```
-
-![WER](validation-wer.png)
-
 - **Training Loss**:
 
 ![Training Loss](train-loss.png)
