@@ -98,6 +98,8 @@ Evaluate the model using key metrics:
 \text{CER} = \left( \frac{\text{Number of Character Errors}}{\text{Total Number of Characters}} \right) \times 100
 ```
 
+![CER](validation-cer.svg)
+
 - **Word Error Rate (WER)**:
 
     WER measures the percentage of words that are incorrectly predicted. Lower WER indicates better performance. It considers substitutions, insertions, and deletions of words.
@@ -106,19 +108,11 @@ Evaluate the model using key metrics:
 \text{WER} = \left( \frac{\text{Substitutions} + \text{Insertions} + \text{Deletions}}{\text{Total Number of Words}} \right) \times 100
 ```
 
-- **BLEU Score**:
+![WER](validation-wer.svg)
 
-    BLEU (Bilingual Evaluation Understudy) Score is a metric for evaluating the quality of text that has been machine-translated from one language to another. Higher BLEU scores indicate better performance.
+- **Training Loss**:
 
-```math
-\text{BLEU} = \text{BP} \cdot \exp \left( \sum_{n=1}^{N} w_n \log p_n \right)
-```
-where:
-- $\(\text{BP}\)$ is the Brevity Penalty
-- $\(p_n\)$ is the precision of n-grams
-- $\(w_n\)$ is the weight for n-grams, usually $\(w_n = \frac{1}{N}\)$
-
-These metrics provide insights into the model's performance in translating and understanding text.
+![Training Loss](train-loss.svg)
 
 ## 🙏 Acknowledgments
 
