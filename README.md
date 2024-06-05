@@ -48,24 +48,6 @@ Before you begin, ensure you have the following installed:
    pip install -r requirements.txt
    ```
 
-## 🚀 Usage
-
-### Training the Model
-
-Train the Transformer model on your dataset with a single command:
-
-```bash
-python train.py --data_path /path/to/your/dataset --epochs 10 --batch_size 32 --learning_rate 0.0001
-```
-
-### Evaluating the Model
-
-Evaluate the trained model's performance:
-
-```bash
-python evaluate.py --model_path /path/to/saved/model --data_path /path/to/your/dataset
-```
-
 ## 🏗️ Model Architecture
 
 Our Transformer model includes the following key components:
@@ -90,31 +72,19 @@ To better understand the model's inner workings, use our visualization tools to 
 
 Visualize the self-attention mechanisms in the encoder layers:
 
-```python
-encoder_self_attention_maps = get_all_attention_maps(
-    "encoder", layers, heads, encoder_input_tokens, encoder_input_tokens, min(20, sentence_len))
-encoder_self_attention_maps.display()
-```
+![Encoder Self-Attention](encoder.png)
 
 #### Decoder Self-Attention
 
 Visualize the self-attention mechanisms in the decoder layers:
 
-```python
-decoder_self_attention_maps = get_all_attention_maps(
-    "decoder", layers, heads, decoder_input_tokens, decoder_input_tokens, min(20, sentence_len))
-decoder_self_attention_maps.display()
-```
+![Decoder Self-Attention](decoder.png)
 
 #### Encoder-Decoder Attention
 
 Visualize the attention mechanisms between the encoder and decoder layers:
 
-```python
-encoder_decoder_attention_maps = get_all_attention_maps(
-    "encoder-decoder", layers, heads, encoder_input_tokens, decoder_input_tokens, min(20, sentence_len))
-encoder_decoder_attention_maps.display()
-```
+![Encoder-Decoder Cross-Attention](encoder-decoder.png)
 
 ## 📈 Metrics
 
