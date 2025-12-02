@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import os
 from torch.utils.data import Dataset, DataLoader, random_split
 from pathlib import Path
 
@@ -217,6 +218,15 @@ def run_validation(model,
           writer.flush()
           print_msg(f"\n[SacreBLEU] Corpus BLEU: {bleu_corpus.score:.2f}")
           print_msg(f"[SacreBLEU] CHRF++: {chrf_corpus.score:.2f}")
+          # Log The Loss
+        with open(os.path.join(csv_metric_path, "metrics_log.csv"), "a", newline='') as f:
+            writer_csv = csv.writer(f)
+            # Write header if file is new/empty
+            if f.tell() == 0:
+                writer_csv.writerow(['Step', 'CER', 'WER', 'torchmetrics_BLEU', 'SacreBLEU', 'CHRF++'])
+            writer_csv.writerow([global_step, cer, wer, bleu, bleu_corpus.score, chrf_corpus.score])
+        
+    return cer.item()
 
 def get_all_sentences(ds, 
                       lang):
@@ -274,9 +284,14 @@ def filter_long_sentences(dataset_split):
     
     filtered_data = {'translation': []}
     for item in tqdm(dataset_split, desc="Filtering long sentences"):
+        en_text = item['translation']['en']
+        hi_text = item['translation']['hi']
         
-        en_len = len(item['translation']['en'].split())
-        hi_len = len(item['translation']['hi'].split())
+        if '_' in en_text or '_' in hi_text:
+            continue
+        
+        en_len = len(en_text.split())
+        hi_len = len(hi_text.split())
         if en_len <= 10 and hi_len <= 10:
             filtered_data['translation'].append(item['translation'])
             
@@ -418,6 +433,11 @@ def train_model(config):
     writer = SummaryWriter(config['experiment_name'])
     
     optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.1, patience=2
+    )
+
+    scaler = torch.cuda.amp.GradScaler()
     
     initial_epoch = 0
     global_step = 0
@@ -429,7 +449,7 @@ def train_model(config):
         optimizer.load_state_dict(state['optimizer_state_dict'])
         global_step = state['global_step']
         
-    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
     
     for epoch in range(initial_epoch, config['num_epochs']):
         
@@ -437,36 +457,30 @@ def train_model(config):
         model.train()
         batch_iterator = tqdm(train_dataloader, desc=f'Processing Epoch {epoch:02d}')
         for batch in batch_iterator:
+            with torch.cuda.amp.autocast():
+                encoder_input = batch['encoder_input'].to(device) # (B, seq_len)
+                decoder_input = batch['decoder_input'].to(device) # (B, seq_len)
+                encoder_mask = batch['encoder_mask'].to(device) # (B, 1, 1, seq_len)
+                decoder_mask = batch['decoder_mask'].to(device) # (B, 1, seq_len, seq_len)
             
-            encoder_input = batch['encoder_input'].to(device) # (B, seq_len)
-            decoder_input = batch['decoder_input'].to(device) # (B, seq_len)
-            encoder_mask = batch['encoder_mask'].to(device) # (B, 1, 1, seq_len)
-            decoder_mask = batch['decoder_mask'].to(device) # (B, 1, seq_len, seq_len)
-            
-            # Run The Tensors Through The Transformer
-            encoder_output = model.encode(encoder_input, 
-                                          encoder_mask) # (B, seq_len, d_model)
-            
-            decoder_output = model.decode(encoder_output, 
-                                          encoder_mask, 
-                                          decoder_input, 
-                                          decoder_mask) # (B, seq_len, d_model)
-            
-            proj_output = model.project(decoder_output) # (B, seq_len, tgt_vocab_size)
-            
-            label = batch['label'].to(device) # (B, seq_len)
-            
-            # (B, seq_len, tgt_vocab_size) --> (B * seq_len, tgt_vocab_size)
-            loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
+                # Run The Tensors Through The Transformer
+                encoder_output = model.encode(encoder_input, 
+                                            encoder_mask) # (B, seq_len, d_model)
+                
+                decoder_output = model.decode(encoder_output, 
+                                            encoder_mask, 
+                                            decoder_input, 
+                                            decoder_mask) # (B, seq_len, d_model)
+                
+                proj_output = model.project(decoder_output) # (B, seq_len, tgt_vocab_size)
+                
+                label = batch['label'].to(device) # (B, seq_len)
+                
+                # (B, seq_len, tgt_vocab_size) --> (B * seq_len, tgt_vocab_size)
+                loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
+
             batch_iterator.set_postfix({f"loss" : f"{loss.item(): 6.3f}"})
             
-            # Log The Loss
-            with open(os.path.join(csv_metric_path, "metrics_log.csv"), "a", newline='') as f:
-                writer_csv = csv.writer(f)
-                # Write header if file is new/empty
-                if f.tell() == 0:
-                    writer_csv.writerow(['Step', 'CER', 'WER', 'torchmetrics_BLEU', 'SacreBLEU', 'CHRF++'])
-                writer_csv.writerow([global_step, cer, wer, bleu, bleu_corpus.score, chrf_corpus.score])
             # writer.add_scalar('train loss', loss.item(), global_step)
             # writer.flush()
             if writer:
@@ -475,16 +489,23 @@ def train_model(config):
               writer.flush()
 
             
-            # Backpropagate The Loss
-            loss.backward()
+            # Backpropagation with Scaler
+            scaler.scale(loss).backward()
             
-            # Update The Weights
-            optimizer.step()
+            # Unscale gradients for clipping
+            scaler.unscale_(optimizer)
+            
+            # Clip Gradients
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+            # Step with Scaler
+            scaler.step(optimizer)
+            scaler.update()
             optimizer.zero_grad(set_to_none=True)
             
             global_step += 1
             
-        run_validation(model, 
+        val_cer = run_validation(model, 
                            val_dataloader, 
                            tokenizer_src, 
                            tokenizer_tgt, 
@@ -493,6 +514,10 @@ def train_model(config):
                            lambda msg: batch_iterator.write(msg),
                            global_step,
                            writer)
+        
+        scheduler.step(val_cer) 
+        last_lr = optimizer.param_groups[0]['lr']
+        print(f"Current Learning Rate: {last_lr}")
             
         # Save The Model At The End Of Every Epoch
         model_filename = get_weights_file_path(config, f'{epoch:02d}')
