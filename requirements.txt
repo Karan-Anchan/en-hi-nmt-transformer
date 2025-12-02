@@ -1,6 +1,6 @@
-torch==2.2.2
-torchvision==0.17.2 
-torchaudio==2.2.2
+torch
+torchvision
+torchaudio
 tokenizers
 datasets
 tqdm
@@ -8,4 +8,9 @@ torchmetrics
 altair
 pandas
 numpy
---index-url https://download.pytorch.org/whl/cu121
+notebook
+vl-convert-python
+tensorboard
+transformers
+sacrebleu
+matplotlib

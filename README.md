@@ -1,101 +1,145 @@
----
 
-# 🚀 Transformer Model from Scratch 🚀
+-----
 
-Welcome to the Transformer Model Pytorch repository! This project showcases a custom implementation of the Transformer architecture using PyTorch. Dive into sequence-to-sequence learning with one of the most influential models in natural language processing.
+# English-to-Hindi Neural Machine Translation (Transformer)
 
-## 🌐 Overview
+  
 
-The Transformer model unveiled in the revolutionary paper ["Attention is All You Need"](https://arxiv.org/abs/1706.03762) by Vaswani et al., has transformed the landscape of NLP. Ditching traditional recurrent architectures, it relies on powerful self-attention mechanisms to excel in various tasks. This repository focuses on utilizing the Transformer for English to Hindi translation, demonstrating its prowess in handling complex linguistic structures across different languages. Dive into the core of Transformer architecture, exploring its encoder-decoder framework and how it processes language pairs effectively.
+A complete implementation of the **Transformer** architecture ("Attention Is All You Need") built from scratch in PyTorch for translating English text to Hindi. Trained on the IIT Bombay English-Hindi Corpus.
 
-## 🎉 Features
+## 📌 Overview
 
-- **🔥 Pure PyTorch Implementation:** Delve deep into the Transformer's intricacies with a from-scratch implementation that lets you explore every layer, every neuron.
-- **🛠️ Modular Design:** Tinker with key components like multi-head self-attention and positional encoding. Our design lets you adapt and expand parts effortlessly.
-- **📊 Comprehensive Training and Evaluation Scripts:** Jump right into training with pre-written scripts, making it easy to start translating between English and Hindi or assess your model’s performance.
-- **👁️ Visualization Tools:** Get a graphical view of what's happening under the hood. Our tools let you watch the attention mechanisms at work and monitor training progress in real-time.
-- **🌍 Bilingual Tokenization Support:** Tailored for the nuances of English and Hindi, ensuring accurate and effective handling of linguistic elements unique to both languages.
+This project implements a Sequence-to-Sequence Transformer model with Multi-Head Self-Attention and Cross-Attention mechanisms. It features a custom training loop, dynamic learning rate scheduling, and real-time validation metrics.
 
-## 📋 Prerequisites
+**Key Features:**
 
-Before you begin, ensure you have the following installed:
+  * **Architecture:** 6-layer Encoder/Decoder, 512 embedding dimension, 8 attention heads.
+  * **Dataset:** [cfilt/iitb-english-hindi](https://huggingface.co/datasets/cfilt/iitb-english-hindi).
+  * **Tokenizer:** Word-level tokenization trained specifically on the corpus.
+  * **Visualization:** Integration with Altair for attention map visualization.
 
-- Python 3.7 or higher
-- PyTorch 1.8.0 or higher
-- NumPy
-- Matplotlib (optional, for visualization)
-- Altair (for advanced visualizations)
+-----
 
-## 🔧 Installation
+## 📊 Performance & Results
 
-1. **Clone the repository:**
+The model was trained for over **900,000 steps**. The best performance was observed at checkpoint **Step 651,791**.
 
-   ```bash
-   git clone https://github.com/yourusername/transformer-from-scratch.git
-   cd transformer-from-scratch
-   ```
+### Key Metrics
 
-2. **Create a virtual environment and activate it:**
+| Metric | Score | Description |
+| :--- | :--- | :--- |
+| **SacreBLEU** | **62.48** | High correspondence with reference translations. |
+| **CHRF++** | **71.78** | Strong character-level n-gram overlap. |
+| **CER** | **0.28** | Low Character Error Rate (\~28%). |
+| **Training Loss**| **2.95** | Converged from initial \~10.24. |
 
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-   ```
+### Training Progression
 
-3. **Install the required packages:**
+**Loss Convergence:**
+The model shows a consistent downward trend in loss, stabilizing effectively after step 600k.
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+*(beautiful_train_loss.png)*
 
-## 🏗️ Model Architecture
+**Metric Evolution:**
+Both SacreBLEU and CHRF++ show strong correlation with training steps, peaking around the selected checkpoint.
 
-Our Transformer model includes the following key components:
+*(beautiful_metrics.png)*
 
-1. **🔤 Input Embeddings**: These transform token indices into dense vectors, facilitating the model's understanding of textual input.
+-----
 
-2. **📍 Positional Encoding**: By imbuing embeddings with positional information, this component ensures the model comprehends the sequential order of tokens within the input.
+## 🧠 Qualitative Analysis
 
-3. **🎭 Multi-Head Self-Attention**: Enabling nuanced focus across diverse segments of the input sequence, this mechanism enhances the model's ability to discern context.
+The model demonstrates robust handling of formal sentence structures and proper noun transliteration.
 
-4. **💥 Feed-Forward Neural Network**: Infusing the model with non-linearity and intricacy, this network contributes to its capacity for sophisticated computations.
+| Source (English) | Prediction (Hindi) | Note |
+| :--- | :--- | :--- |
+| *(a) the manufacture or processing of goods;* | *( क ) माल का विनिर्माण या प्रसंस्करण* | Perfect translation of legal/formal text. |
+| *Daniel Molkentin* | *डेनियल मॉल्केनटिन* | Accurate transliteration of foreign names. |
+| *Last Quarter Moon* | *पिछले चौथाई चन्द्रमा* | Correct semantic understanding. |
 
-5. **🔁 Encoder and Decoder Layers**: Constituting stacks of attention and feed-forward layers, these elements play a pivotal role in constructing intricate representations of input data.
+### Attention Visualization
 
-6. **🎯 Output Linear Layer**: Responsible for the final stage of transformation, this layer maps the decoder's output to match the size of the target vocabulary, ensuring alignment with desired linguistic outcomes.
+[Image of Encoder-Decoder Attention]
 
-### 📊 Visualization
+Understanding how the Decoder focuses on specific Encoder tokens during generation (Cross-Attention):
 
-To better understand the model's inner workings, use our visualization tools to inspect attention weights and training metrics.
+*(decoder.png)*
 
-#### Encoder Self-Attention
+*(encoder-decoder.png)*
 
-Visualize the self-attention mechanisms in the encoder layers:
+-----
 
-![Encoder Self-Attention](encoder.png)
+## 🛠️ Installation & Setup
 
-#### Decoder Self-Attention
+1.  **Clone the repository**
 
-Visualize the self-attention mechanisms in the decoder layers:
+    ```bash
+    git clone https://github.com/KaranAnchan/en-hi-nmt-transformer.git
+    cd en-hi-nmt-transformer
+    ```
 
-![Decoder Self-Attention](decoder.png)
+2.  **Install dependencies**
 
-#### Encoder-Decoder Attention
+    ```bash
+    pip install requirements.txt
+    ```
 
-Visualize the attention mechanisms between the encoder and decoder layers:
+## 🚀 Usage
 
-![Encoder-Decoder Cross-Attention](encoder-decoder.png)
+### Inference (Translation)
 
-- **Training Loss**:
+To translate a sentence using the trained weights:
 
-![Training Loss](train-loss.png)
+```python
+import torch
+from model import build_transformer
+from config import get_config
+from train import greedy_decode, get_ds
 
-## 🙏 Acknowledgments
+# 1. Load Config and Weights
+config = get_config()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-This project draws inspiration from the original Transformer paper and various open-source implementations. We thank the PyTorch community for their comprehensive resources and tutorials.
+# Re-build the model structure (ensure vocab sizes match your training)
+# You might need to load the tokenizer first to get exact vocab sizes
+model = build_transformer(vocab_src_len=..., vocab_tgt_len=..., 
+                          seq_len=config['seq_len'], d_model=config['d_model'])
 
-## 📜 License
+checkpoint = torch.load("weights/tmodel_06.pt")
+model.load_state_dict(checkpoint['model_state_dict'])
+model.to(device)
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/KaranAnchan/Transformers_Pytorch/blob/main/LICENSE) file for more details.
+# 2. Translate
+src_text = "The manufacture of goods."
+# ... (Load tokenizers and preprocess text) ...
+# output = greedy_decode(model, src_text, ...)
+print(output)
+# Output: "माल का विनिर्माण।"
+```
 
----
+### Training
+
+To train the model from scratch:
+
+```bash
+python train.py
+```
+
+*Modify `config.py` to adjust batch size, learning rate, or number of epochs.*
+
+-----
+
+## 📂 Project Structure
+
+  * `model.py`: Complete Transformer architecture (Embeddings, Positional Encoding, Multi-Head Attention, Encoder/Decoder blocks).
+  * `train.py`: Training loop, validation, and checkpoint saving.
+  * `dataset.py`: Custom PyTorch Dataset class for bilingual text.
+  * `config.py`: Hyperparameters and file path configurations.
+  * `attention_visual.ipynb`: Notebook for generating attention heatmaps.
+
+-----
+
+## 📜 Acknowledgements
+
+  * Dataset provided by [IIT Bombay](https://www.cfilt.iitb.ac.in/).
+  * Architecture based on the paper *[Attention Is All You Need](https://arxiv.org/abs/1706.03762)* (Vaswani et al., 2017).
