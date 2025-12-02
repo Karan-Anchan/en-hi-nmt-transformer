@@ -38,12 +38,12 @@ The model was trained for over **900,000 steps**. The best performance was obser
 **Loss Convergence:**
 The model shows a consistent downward trend in loss, stabilizing effectively after step 600k.
 
-(beautiful_train_loss.png)
+!(beautiful_train_loss.png)
 
 **Metric Evolution:**
 Both SacreBLEU and CHRF++ show strong correlation with training steps, peaking around the selected checkpoint.
 
-(beautiful_metrics.png)
+!(beautiful_metrics.png)
 
 -----
 
@@ -63,9 +63,9 @@ The model demonstrates robust handling of formal sentence structures and proper 
 
 Understanding how the Decoder focuses on specific Encoder tokens during generation (Cross-Attention):
 
-(decoder.png)
+!(decoder.png)
 
-(encoder-decoder.png)
+!(encoder-decoder.png)
 
 -----
 
