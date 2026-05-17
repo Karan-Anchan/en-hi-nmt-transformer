@@ -1,0 +1,26 @@
+{
+  "checkpoint": "weights\\tmodel_best.pt",
+  "n_test": 500,
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 5070",
+  "beam_size": 4,
+  "length_penalty": 0.6,
+  "greedy": {
+    "sacrebleu": 16.18,
+    "chrf_pp": 41.36,
+    "ter": 74.38,
+    "mean_latency_ms": 426.2,
+    "p95_latency_ms": 951.93,
+    "throughput_tok_per_s": 134.3,
+    "sentences_per_s": 2.35
+  },
+  "beam": {
+    "sacrebleu": 16.93,
+    "chrf_pp": 41.58,
+    "ter": 71.41,
+    "mean_latency_ms": 3960.99,
+    "p95_latency_ms": 4275.27,
+    "throughput_tok_per_s": 13.8,
+    "sentences_per_s": 0.25
+  }
+}

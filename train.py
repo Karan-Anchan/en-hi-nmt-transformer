@@ -1,534 +1,322 @@
-import torch
-import torch.nn as nn
-import os
-from torch.utils.data import Dataset, DataLoader, random_split
+"""Training entry point for the English → Hindi Transformer.
+
+Highlights of this recipe (vs. a vanilla Adam loop):
+  * Byte-level BPE tokenization (spaces survive the encode/decode round-trip).
+  * Noam learning-rate schedule (warmup + 1/√step) per the original paper.
+  * Mixed-precision (fp16) with grad clipping and label smoothing.
+  * Deterministic train/val/test split — the test set is materialized to
+    ``runs/tmodel/test.jsonl`` so ``eval.py`` always scores on the same data.
+  * Tracks the best checkpoint by validation chrF++.
+  * Logs to TensorBoard *and* a flat CSV so plots can be regenerated.
+"""
+from __future__ import annotations
+
+import csv
+import json
+import random
+import time
 from pathlib import Path
 
-from dataset import BilingualDataset, causal_mask
-from model import build_transformer
-from config import get_config, get_weights_file_path
-
-from datasets import load_dataset, Dataset
-from tokenizers import Tokenizer
-from tokenizers.models import WordLevel
-from tokenizers.trainers import WordLevelTrainer
-from tokenizers.pre_tokenizers import Whitespace
-
-from torch.utils.tensorboard import SummaryWriter
-
-from tqdm import tqdm
-import warnings
-import torchmetrics
+import numpy as np
 import sacrebleu
-import csv
+import torch
+import torch.nn as nn
+from datasets import Dataset, load_dataset
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-def greedy_decode(model, 
-                  source, 
-                  source_mask, 
-                  tokenizer_src, 
-                  tokenizer_tgt, 
-                  max_len, 
-                  device):
-    
-    """
-    Performs greedy decoding for sequence generation using a Transformer model.
+from config import get_best_weights_path, get_config, get_weights_file_path
+from dataset import BilingualDataset
+from decode import greedy_decode
+from model import build_transformer
+from tokenizer_train import get_or_build_tokenizer
 
-    This function generates a target sequence by selecting the token with the highest
-    probability at each step until an end-of-sequence token is generated or the maximum
-    length is reached. It uses the encoder output and iteratively feeds the generated
-    tokens back into the decoder.
 
-    Args:
-        model (nn.Module): The Transformer model used for encoding and decoding.
-        source (torch.Tensor): The source sequence tensor.
-        source_mask (torch.Tensor): The mask tensor for the source sequence.
-        tokenizer_src (Tokenizer): The tokenizer for the source language.
-        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
-        max_len (int): The maximum length of the generated sequence.
-        device (torch.device): The device to run the decoding on (CPU or GPU).
+# ----------------------------- utilities --------------------------------
 
-    Returns:
-        torch.Tensor: The generated target sequence tensor.
-    """
-    
-    sos_idx = tokenizer_src.token_to_id('[SOS]')
-    eos_idx = tokenizer_tgt.token_to_id('[EOS]')
-    
-    # Precompute The Encoder Output And Reuse For Every Token From Decoder
-    encoder_output = model.encode(source, 
-                                  source_mask)
-    
-    # Initialize Decoder Input With SOS Token
-    decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device)
-    
-    while True:
-        
-        if decoder_input.size(1) == max_len:
-            break
-        
-        # Build Mask For Target (Decoder Input)
-        decoder_mask = causal_mask(decoder_input.size(1)).type_as(source_mask).to(device)
-        
-        # Calculate The Output Of Decoder
-        out = model.decode(encoder_output, 
-                           source_mask, 
-                           decoder_input, 
-                           decoder_mask)
-        
-        # Get Next Token
-        prob = model.project(out[:, -1])
-        
-        # Select Token With Max Probability (Greedy Search)
-        _, next_token = torch.max(prob, 
-                                  dim=1)
-        decoder_input = torch.cat([decoder_input, 
-                                   torch.empty(1, 1).type_as(source).fill_(next_token.item()).to(device)], 
-                                  dim=1)
-        
-        if next_token == eos_idx:
-            break
-        
-    return decoder_input.squeeze(0)
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
-def run_validation(model, 
-                   validation_ds, 
-                   tokenizer_src, 
-                   tokenizer_tgt, 
-                   max_len, device, 
-                   print_msg,
-                   global_step, 
-                   writer, 
-                   num_examples=5, 
-                   csv_metric_path='runs/tmodel'
-):
-    
-    """
-    Runs validation on the provided model and dataset, prints sample translations, and logs evaluation metrics.
 
-    This function evaluates the model on a validation dataset. It uses greedy decoding to generate predictions
-    for the source sequences, compares them with the target sequences, and prints sample translations to the console.
-    It also computes and logs the Character Error Rate (CER), Word Error Rate (WER), and BLEU score using the
-    provided writer for TensorBoard logging.
+def noam_lr(step: int, d_model: int, warmup_steps: int) -> float:
+    """Original Transformer LR schedule: warmup linearly then decay 1/sqrt(step)."""
+    step = max(1, step)
+    return (d_model ** -0.5) * min(step ** -0.5, step * warmup_steps ** -1.5)
 
-    Args:
-        model (nn.Module): The Transformer model to be evaluated.
-        validation_ds (Dataset): The validation dataset containing source and target sequences.
-        tokenizer_src (Tokenizer): The tokenizer for the source language.
-        tokenizer_tgt (Tokenizer): The tokenizer for the target language.
-        max_len (int): The maximum length of the generated sequence.
-        device (torch.device): The device to run the validation on (CPU or GPU).
-        print_msg (callable): A function to print messages to the console.
-        global_step (int): The global step count for logging.
-        writer (SummaryWriter): The TensorBoard writer for logging metrics.
-        num_examples (int, optional): The number of validation examples to print and evaluate. Default is 2.
 
-    Returns:
-        None
-    """
-    
-    model.eval()
-    count = 0
-    source_texts = []
-    expected = []
-    predicted = []
-    
-    # Size Of The Control Window (Use Default)    
-    console_width = 80
-    with torch.no_grad():
-        for batch in validation_ds:
-            count += 1
-            encoder_input = batch['encoder_input'].to(device)
-            encoder_mask = batch['encoder_mask'].to(device)
-            
-            assert encoder_input.size(0) == 1, "Batch Size Must Be 1 For Validation"
-            
-            model_out = greedy_decode(model, 
-                                      encoder_input,
-                                      encoder_mask,
-                                      tokenizer_src, 
-                                      tokenizer_tgt, 
-                                      max_len, 
-                                      device)
-            
-            source_text = batch['src_text'][0]
-            target_text = batch['tgt_text'][0]
-            model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
-            
-            source_texts.append(source_text)
-            expected.append(target_text)
-            predicted.append(model_out_text)
-            
-            # Print It To Console
-            print_msg('-' * console_width)
-            print_msg(f"{f'SOURCE: ':>12}{source_text}")
-            print_msg(f"{f'TARGET: ':>12}{target_text}")
-            print_msg(f"{f'PREDICTED: ':>12}{model_out_text}")
+def split_dataset(ds, val_fraction: float, test_fraction: float, seed: int):
+    """Deterministic 3-way split. Returns (train, val, test) Hugging Face Datasets."""
+    n = len(ds)
+    indices = list(range(n))
+    rng = random.Random(seed)
+    rng.shuffle(indices)
+    n_test = int(n * test_fraction)
+    n_val = int(n * val_fraction)
+    test_idx = indices[:n_test]
+    val_idx = indices[n_test:n_test + n_val]
+    train_idx = indices[n_test + n_val:]
+    return ds.select(train_idx), ds.select(val_idx), ds.select(test_idx)
 
-            if count == num_examples:
-                print_msg('-' * console_width)
-                break
 
-    # Save qualitative outputs for review
-    if not os.path.exists(csv_metric_path):
-        os.makedirs(csv_metric_path)
-    qualitative_csv = os.path.join(csv_metric_path, f'qualitative_epoch_{global_step}.csv')
-    with open(qualitative_csv, 'w', newline='', encoding='utf8') as csvfile:
-        writer_csv = csv.writer(csvfile)
-        writer_csv.writerow(['Source', 'Target', 'Prediction'])
-        for s, t, p in zip(source_texts, expected, predicted):
-            writer_csv.writerow([s, t, p])
-    print_msg(f"Saved qualitative outputs to {qualitative_csv}")
+def _clean_pair(en: str, hi: str) -> bool:
+    """Cheap quality filter: drop empties, template placeholders, length-ratio outliers."""
+    if not en or not hi:
+        return False
+    en, hi = en.strip(), hi.strip()
+    if not en or not hi:
+        return False
+    if '_' in en or '_' in hi:  # template placeholders like "Set as _ Desktop"
+        return False
+    # very-long ratio outliers are usually garbage
+    ratio = len(hi) / max(1, len(en))
+    if ratio > 4.0 or ratio < 0.25:
+        return False
+    return True
 
-    print_msg("\nSample translation outputs for qualitative inspection:")
-    for i in range(min(num_examples, len(predicted))):
-        print_msg(f"Source   : {source_texts[i]}")
-        print_msg(f"Target   : {expected[i]}")
-        print_msg(f"Predicted: {predicted[i]}")
-        print_msg('-' * 40)
-            
-    if writer:
-        
-        # Evaluate the character error rate
-        # Compute the char error rate 
-        metric = torchmetrics.CharErrorRate()
-        cer = metric(predicted, expected)
-        # writer.add_scalar('validation cer', cer, global_step)
-        writer.add_scalar('Validation/CER', cer, global_step)
-        writer.flush()
 
-        # Compute the word error rate
-        metric = torchmetrics.WordErrorRate()
-        wer = metric(predicted, expected)
-        # writer.add_scalar('validation wer', wer, global_step)
-        writer.add_scalar('Validation/WER', wer, global_step)
-        writer.flush()
+def _extract_pair(row, config):
+    """Return (en, hi) regardless of dataset schema."""
+    if 'translation' in row:
+        return row['translation'].get(config['lang_src']), row['translation'].get(config['lang_tgt'])
+    return row.get(config.get('src_field', 'src')), row.get(config.get('tgt_field', 'tgt'))
 
-        # Compute the BLEU metric
-        metric = torchmetrics.BLEUScore()
-        bleu = metric(predicted, expected)
-        # writer.add_scalar('validation BLEU', bleu, global_step)
-        writer.add_scalar('Validation/torchmetrics_BLEU', bleu, global_step)
-        writer.flush()
 
-        if len(expected) > 0 and len(predicted) > 0:
-          bleu_corpus = sacrebleu.corpus_bleu(predicted, [expected])
-          chrf_corpus = sacrebleu.corpus_chrf(predicted, [expected])
-          writer.add_scalar('Validation/SacreBLEU_corpus', bleu_corpus.score, global_step)
-          writer.add_scalar('Validation/CHRF_pp', chrf_corpus.score, global_step)
-          writer.flush()
-          print_msg(f"\n[SacreBLEU] Corpus BLEU: {bleu_corpus.score:.2f}")
-          print_msg(f"[SacreBLEU] CHRF++: {chrf_corpus.score:.2f}")
-          # Log The Loss
-        with open(os.path.join(csv_metric_path, "metrics_log.csv"), "a", newline='') as f:
-            writer_csv = csv.writer(f)
-            # Write header if file is new/empty
-            if f.tell() == 0:
-                writer_csv.writerow(['Step', 'CER', 'WER', 'torchmetrics_BLEU', 'SacreBLEU', 'CHRF++'])
-            writer_csv.writerow([global_step, cer, wer, bleu, bleu_corpus.score, chrf_corpus.score])
-        
-    return cer.item()
-
-def get_all_sentences(ds, 
-                      lang):
-    
-    """
-    Generator function that yields sentences in a specified language from the dataset.
-
-    Args:
-        ds (Dataset): The dataset containing multilingual translations.
-        lang (str): The language code of the sentences to yield.
-
-    Yields:
-        str: Sentences in the specified language.
-    """
-    
-    for item in ds:
-        yield item['translation'][lang]
-
-def get_or_build_tokenizer(config, 
-                           ds, 
-                           lang):
-    
-    """
-    Retrieves an existing tokenizer or trains a new tokenizer on the dataset if it doesn't exist.
-
-    Args:
-        config (dict): Configuration dictionary containing the tokenizer file path and language codes.
-        ds (Dataset): The dataset containing multilingual translations.
-        lang (str): The language code for which to build the tokenizer.
-
-    Returns:
-        Tokenizer: The trained tokenizer for the specified language.
-    """
-    
-    tokenizer_path = Path(config['tokenizer_file'].format(lang))
-    
-    if not Path.exists(tokenizer_path):
-        
-        tokenizer = Tokenizer(WordLevel(unk_token='[UNK]'))
-        tokenizer.pre_tokenizer = Whitespace()
-        trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], 
-                             min_frequency=2)
-        tokenizer.train_from_iterator(get_all_sentences(ds, lang), trainer=trainer)
-        tokenizer.save(str(tokenizer_path))
-    
+def load_and_filter(config) -> Dataset:
+    cfg_name = config.get('dataset_config')
+    if cfg_name:
+        raw = load_dataset(config['dataset_name'], cfg_name, split='train')
     else:
-        
-        tokenizer = Tokenizer.from_file(str(tokenizer_path))
-        
-    return tokenizer
+        raw = load_dataset(config['dataset_name'], split='train')
+    cleaned = {'translation': []}
+    cap = config.get('max_train_examples')
+    # If we're capping, sample uniformly from a much larger pool so we filter
+    # *first*, then take the first N good pairs — avoids burning the cap on
+    # bad rows at the head of the file.
+    iterator = raw
+    if cap:
+        iterator = raw.select(range(min(len(raw), cap * 3)))
+    kept = 0
+    for row in tqdm(iterator, desc='Filtering corpus'):
+        en, hi = _extract_pair(row, config)
+        if _clean_pair(en, hi):
+            cleaned['translation'].append({config['lang_src']: en.strip(),
+                                           config['lang_tgt']: hi.strip()})
+            kept += 1
+            if cap and kept >= cap:
+                break
+    print(f"Kept {kept:,} pairs after filtering")
+    return Dataset.from_dict(cleaned)
 
-def filter_long_sentences(dataset_split):
-    
-    
-    
-    filtered_data = {'translation': []}
-    for item in tqdm(dataset_split, desc="Filtering long sentences"):
-        en_text = item['translation']['en']
-        hi_text = item['translation']['hi']
-        
-        if '_' in en_text or '_' in hi_text:
-            continue
-        
-        en_len = len(en_text.split())
-        hi_len = len(hi_text.split())
-        if en_len <= 10 and hi_len <= 10:
-            filtered_data['translation'].append(item['translation'])
-            
-    return filtered_data
 
-def get_ds(config):
-    
-    """
-    Loads the dataset, trains or loads tokenizers for the source and target languages, 
-    and splits the dataset into training and validation sets.
+# ----------------------------- validation --------------------------------
 
-    Args:
-        config (dict): Configuration dictionary containing language codes and tokenizer file paths.
+@torch.no_grad()
+def quick_validate(model, val_loader, tokenizer_src, tokenizer_tgt, max_len, device,
+                   writer, global_step, csv_path, num_examples: int = 200):
+    model.eval()
+    expected, predicted = [], []
+    for i, batch in enumerate(val_loader):
+        if i >= num_examples:
+            break
+        out_ids = greedy_decode(
+            model, batch['encoder_input'].to(device), batch['encoder_mask'].to(device),
+            tokenizer_src, tokenizer_tgt, max_len, device,
+        )
+        sos = tokenizer_tgt.token_to_id('[SOS]')
+        eos = tokenizer_tgt.token_to_id('[EOS]')
+        ids = [t for t in out_ids.tolist() if t not in (sos, eos)]
+        predicted.append(tokenizer_tgt.decode(ids))
+        expected.append(batch['tgt_text'][0])
 
-    Returns:
-        tuple: A tuple containing the training and validation datasets, and the tokenizers for source and target languages.
-    """
-    
-    ds_unfilter = load_dataset('cfilt/iitb-english-hindi', split='train')
+    bleu = sacrebleu.corpus_bleu(predicted, [expected]).score
+    chrf = sacrebleu.corpus_chrf(predicted, [expected]).score
 
-    # Filter long sentences in each split
-    filtered_train = filter_long_sentences(ds_unfilter)
+    if writer:
+        writer.add_scalar('Val/SacreBLEU', bleu, global_step)
+        writer.add_scalar('Val/chrF++', chrf, global_step)
+        writer.flush()
 
-    # Create new datasets from filtered data
-    ds_raw = Dataset.from_dict(filtered_train)
-    
-    # Build Tokenizer
-    tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
-    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['lang_tgt'])
-    
-    # Keep 90% for Training and 10% for Validation
-    train_ds_size = int(0.9 * len(ds_raw))
-    val_ds_size = len(ds_raw) - train_ds_size
-    train_ds_raw, val_ds_raw = random_split(ds_raw, [train_ds_size, val_ds_size])
-    
-    train_ds = BilingualDataset(train_ds_raw, 
-                                tokenizer_src, 
-                                tokenizer_tgt, 
-                                config['lang_src'], 
-                                config['lang_tgt'],
-                                config['seq_len'])
-    
-    val_ds = BilingualDataset(val_ds_raw, 
-                                tokenizer_src, 
-                                tokenizer_tgt, 
-                                config['lang_src'], 
-                                config['lang_tgt'],
-                                config['seq_len'])
-    
-    max_len_src = 0
-    max_len_tgt = 0
-    
-    for item in ds_raw:
-        
-        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
-        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
-        max_len_src = max(max_len_src, len(src_ids))
-        max_len_tgt = max(max_len_tgt, len(tgt_ids))
-        
-    print(f'Max Length Of Source Sentence: {max_len_src}')
-    print(f'Max Length Of Target Sentence: {max_len_tgt}')
-    
-    train_dataloader = DataLoader(train_ds, 
-                                  batch_size=config['batch_size'], 
-                                  shuffle=True)
-    
-    val_dataloader = DataLoader(val_ds, 
-                                batch_size=1, 
-                                shuffle=True)
-    
-    return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
+    Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
+    write_header = not Path(csv_path).exists()
+    with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+        w = csv.writer(f)
+        if write_header:
+            w.writerow(['step', 'bleu', 'chrf'])
+        w.writerow([global_step, f"{bleu:.4f}", f"{chrf:.4f}"])
+    return bleu, chrf
 
-def get_model(config,
-              vocab_src_len,
-              vocab_tgt_len):
-    
-    """
-    Builds and returns a Transformer model based on the given configuration and vocabulary sizes.
 
-    This function uses the provided configuration settings and vocabulary sizes for the source
-    and target languages to build a Transformer model. The `build_transformer` function is called
-    with the appropriate parameters to create and initialize the model.
-
-    Args:
-        config (dict): A dictionary containing the configuration settings including sequence length
-                       and model dimensions.
-        vocab_src_len (int): The size of the source vocabulary.
-        vocab_tgt_len (int): The size of the target vocabulary.
-
-    Returns:
-        nn.Module: An instance of the Transformer model initialized with the given parameters.
-    """
-    
-    model = build_transformer(vocab_src_len,
-                              vocab_tgt_len, 
-                              config['seq_len'],
-                              config['seq_len'],
-                              d_model=config['d_model'])
-    
-    return model
-
-def log_training_loss_csv(loss_value, step, csv_path='runs/tmodel/train_loss.csv'):
-    file_exists = os.path.isfile(csv_path)
-    with open(csv_path, 'a', newline='') as f:
-        writer_csv = csv.writer(f)
-        if not file_exists:
-            writer_csv.writerow(['step', 'value'])
-        writer_csv.writerow([step, loss_value])
+# ----------------------------- main loop --------------------------------
 
 def train_model(config):
-    
-    """
-    Trains a Transformer model based on the given configuration.
-
-    This function sets up the training environment, including device configuration,
-    data loading, model initialization, and training loop. It also supports resuming
-    training from a checkpoint, logs training progress using TensorBoard, and saves
-    model checkpoints after each epoch.
-
-    Args:
-        config (dict): A dictionary containing configuration settings such as
-                       batch size, number of epochs, learning rate, sequence length,
-                       model dimensions, language settings, and file paths.
-
-    Returns:
-        None
-    """
-    
-    # Define The Device
+    set_seed(config['split_seed'])
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using Device {device}')
-    
+    print(f'Using device: {device}')
+    if device.type == 'cuda':
+        print(f'GPU: {torch.cuda.get_device_name(0)} ({torch.cuda.get_device_properties(0).total_memory/1e9:.1f} GB)')
+
     Path(config['model_folder']).mkdir(parents=True, exist_ok=True)
-    
-    train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config)
-    model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
-    
-    # TensorBoard
-    writer = SummaryWriter(config['experiment_name'])
-    
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.1, patience=2
+    Path(config['experiment_name']).mkdir(parents=True, exist_ok=True)
+
+    # ----- data -----
+    print('Loading dataset...')
+    full_ds = load_and_filter(config)
+    train_ds_raw, val_ds_raw, test_ds_raw = split_dataset(
+        full_ds, config['val_fraction'], config['test_fraction'], config['split_seed']
+    )
+    print(f"Train: {len(train_ds_raw):,} | Val: {len(val_ds_raw):,} | Test: {len(test_ds_raw):,}")
+
+    # Persist the test split paths for the eval script — we save indices implicitly
+    # by saving the test set itself as JSONL for reproducibility.
+    test_jsonl = Path(config['experiment_name']) / 'test.jsonl'
+    with open(test_jsonl, 'w', encoding='utf-8') as f:
+        for row in test_ds_raw:
+            f.write(json.dumps(row, ensure_ascii=False) + '\n')
+    print(f'Saved held-out test set to {test_jsonl}')
+
+    # ----- tokenizers -----
+    tok_src = get_or_build_tokenizer(
+        config, (r['translation']['en'] for r in train_ds_raw), config['lang_src']
+    )
+    tok_tgt = get_or_build_tokenizer(
+        config, (r['translation']['hi'] for r in train_ds_raw), config['lang_tgt']
+    )
+    print(f"Vocab: en={tok_src.get_vocab_size()} hi={tok_tgt.get_vocab_size()}")
+
+    train_dl = DataLoader(
+        BilingualDataset(train_ds_raw, tok_src, tok_tgt,
+                         config['lang_src'], config['lang_tgt'], config['max_seq_len']),
+        batch_size=config['batch_size'], shuffle=True, num_workers=0, pin_memory=True,
+    )
+    val_dl = DataLoader(
+        BilingualDataset(val_ds_raw, tok_src, tok_tgt,
+                         config['lang_src'], config['lang_tgt'], config['max_seq_len']),
+        batch_size=1, shuffle=False, num_workers=0,
     )
 
-    scaler = torch.cuda.amp.GradScaler()
-    
-    initial_epoch = 0
-    global_step = 0
-    if config['preload']:
-        model_filename = get_weights_file_path(config, config['preload'])
-        print(f'Preloading Model {model_filename}')
-        state = torch.load(model_filename)
-        initial_epoch = state['epoch'] + 1
-        optimizer.load_state_dict(state['optimizer_state_dict'])
-        global_step = state['global_step']
-        
-    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
-    
+    # ----- model -----
+    model = build_transformer(
+        tok_src.get_vocab_size(), tok_tgt.get_vocab_size(),
+        config['max_seq_len'], config['max_seq_len'],
+        d_model=config['d_model'], N=config['n_layers'], h=config['n_heads'],
+        dropout=config['dropout'], d_ff=config['d_ff'],
+    ).to(device)
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Model parameters: {n_params/1e6:.2f}M')
+
+    writer = SummaryWriter(config['experiment_name'])
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0, betas=(0.9, 0.98), eps=1e-9)
+    scaler = torch.amp.GradScaler('cuda', enabled=(device.type == 'cuda' and config['amp']))
+
+    pad_id = tok_tgt.token_to_id('[PAD]')
+    loss_fn = nn.CrossEntropyLoss(ignore_index=pad_id, label_smoothing=config['label_smoothing']).to(device)
+
+    initial_epoch, global_step = 0, 0
+    best_chrf = -1.0
+
+    if config.get('preload'):
+        ckpt_path = get_weights_file_path(config, config['preload'])
+        if Path(ckpt_path).exists():
+            state = torch.load(ckpt_path, map_location=device)
+            model.load_state_dict(state['model_state_dict'])
+            optimizer.load_state_dict(state['optimizer_state_dict'])
+            initial_epoch = state['epoch'] + 1
+            global_step = state['global_step']
+            best_chrf = state.get('best_chrf', -1.0)
+            print(f'Resumed from {ckpt_path} (epoch {initial_epoch}, step {global_step})')
+
+    train_loss_csv = Path(config['experiment_name']) / 'train_loss.csv'
+    metrics_csv = Path(config['experiment_name']) / 'val_metrics.csv'
+
+    def save_ckpt(path, epoch, global_step, best_chrf):
+        torch.save({
+            'epoch': epoch, 'global_step': global_step,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'best_chrf': best_chrf, 'config': config,
+        }, path)
+
     for epoch in range(initial_epoch, config['num_epochs']):
-        
-        torch.cuda.empty_cache()
         model.train()
-        batch_iterator = tqdm(train_dataloader, desc=f'Processing Epoch {epoch:02d}')
-        for batch in batch_iterator:
-            with torch.cuda.amp.autocast():
-                encoder_input = batch['encoder_input'].to(device) # (B, seq_len)
-                decoder_input = batch['decoder_input'].to(device) # (B, seq_len)
-                encoder_mask = batch['encoder_mask'].to(device) # (B, 1, 1, seq_len)
-                decoder_mask = batch['decoder_mask'].to(device) # (B, 1, seq_len, seq_len)
-            
-                # Run The Tensors Through The Transformer
-                encoder_output = model.encode(encoder_input, 
-                                            encoder_mask) # (B, seq_len, d_model)
-                
-                decoder_output = model.decode(encoder_output, 
-                                            encoder_mask, 
-                                            decoder_input, 
-                                            decoder_mask) # (B, seq_len, d_model)
-                
-                proj_output = model.project(decoder_output) # (B, seq_len, tgt_vocab_size)
-                
-                label = batch['label'].to(device) # (B, seq_len)
-                
-                # (B, seq_len, tgt_vocab_size) --> (B * seq_len, tgt_vocab_size)
-                loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
+        running = 0.0
+        last_log_step = global_step
+        t0 = time.time()
+        pbar = tqdm(train_dl, desc=f'Epoch {epoch:02d}')
+        for batch in pbar:
+            global_step += 1
+            lr = noam_lr(global_step, config['d_model'], config['warmup_steps'])
+            for g in optimizer.param_groups:
+                g['lr'] = lr
 
-            batch_iterator.set_postfix({f"loss" : f"{loss.item(): 6.3f}"})
-            
-            # writer.add_scalar('train loss', loss.item(), global_step)
-            # writer.flush()
-            if writer:
-              writer.add_scalar('Train/Loss', loss.item(), global_step)
-              log_training_loss_csv(loss.item(), global_step)
-              writer.flush()
+            with torch.amp.autocast('cuda', enabled=(device.type == 'cuda' and config['amp'])):
+                enc_in = batch['encoder_input'].to(device, non_blocking=True)
+                dec_in = batch['decoder_input'].to(device, non_blocking=True)
+                enc_mask = batch['encoder_mask'].to(device, non_blocking=True)
+                dec_mask = batch['decoder_mask'].to(device, non_blocking=True)
+                label = batch['label'].to(device, non_blocking=True)
 
-            
-            # Backpropagation with Scaler
+                enc_out = model.encode(enc_in, enc_mask)
+                dec_out = model.decode(enc_out, enc_mask, dec_in, dec_mask)
+                logits = model.project(dec_out)
+                loss = loss_fn(logits.view(-1, tok_tgt.get_vocab_size()), label.view(-1))
+
             scaler.scale(loss).backward()
-            
-            # Unscale gradients for clipping
             scaler.unscale_(optimizer)
-            
-            # Clip Gradients
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-            # Step with Scaler
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config['grad_clip'])
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad(set_to_none=True)
-            
-            global_step += 1
-            
-        val_cer = run_validation(model, 
-                           val_dataloader, 
-                           tokenizer_src, 
-                           tokenizer_tgt, 
-                           config['seq_len'], 
-                           device,
-                           lambda msg: batch_iterator.write(msg),
-                           global_step,
-                           writer)
-        
-        scheduler.step(val_cer) 
-        last_lr = optimizer.param_groups[0]['lr']
-        print(f"Current Learning Rate: {last_lr}")
-            
-        # Save The Model At The End Of Every Epoch
-        model_filename = get_weights_file_path(config, f'{epoch:02d}')
-        torch.save({
-            'epoch' : epoch,
-            'model_state_dict' : model.state_dict(),
-            'optimizer_state_dict' : optimizer.state_dict(),
-            'global_step' : global_step,
-        }, model_filename)
-        
+
+            running += loss.item()
+            pbar.set_postfix(loss=f'{loss.item():.3f}', lr=f'{lr:.2e}')
+
+            if global_step % config['log_every_steps'] == 0:
+                avg = running / max(1, (global_step - last_log_step))
+                running, last_log_step = 0.0, global_step
+                writer.add_scalar('Train/Loss', avg, global_step)
+                writer.add_scalar('Train/LR', lr, global_step)
+                with open(train_loss_csv, 'a', newline='', encoding='utf-8') as f:
+                    w = csv.writer(f)
+                    if f.tell() == 0:
+                        w.writerow(['step', 'loss', 'lr'])
+                    w.writerow([global_step, f'{avg:.6f}', f'{lr:.8f}'])
+
+            if global_step % config['val_every_steps'] == 0:
+                bleu, chrf = quick_validate(
+                    model, val_dl, tok_src, tok_tgt, config['max_seq_len'], device,
+                    writer, global_step, metrics_csv,
+                    num_examples=config['val_max_examples'],
+                )
+                model.train()
+                tqdm.write(f'[step {global_step}] val BLEU={bleu:.2f} chrF++={chrf:.2f}')
+                if chrf > best_chrf:
+                    best_chrf = chrf
+                    save_ckpt(get_best_weights_path(config), epoch, global_step, best_chrf)
+                    tqdm.write(f'  ↳ new best chrF++={chrf:.2f}, saved to weights/tmodel_best.pt')
+
+        dt = time.time() - t0
+        bleu, chrf = quick_validate(
+            model, val_dl, tok_src, tok_tgt, config['max_seq_len'], device,
+            writer, global_step, metrics_csv, num_examples=config['val_max_examples'],
+        )
+        print(f'Epoch {epoch} done in {dt/60:.1f} min | val BLEU={bleu:.2f} chrF++={chrf:.2f}')
+        if chrf > best_chrf:
+            best_chrf = chrf
+            save_ckpt(get_best_weights_path(config), epoch, global_step, best_chrf)
+
+        # ``tmodel_last.pt`` is overwritten each epoch — used to resume.
+        # Per-epoch snapshots are 400+ MB each; uncomment if you want them.
+        save_ckpt(get_weights_file_path(config, 'last'), epoch, global_step, best_chrf)
+        # save_ckpt(get_weights_file_path(config, f'{epoch:02d}'), epoch, global_step, best_chrf)
+
+    writer.close()
+
+
 if __name__ == '__main__':
-    # warnings.filterwarnings('ignore')
-    config = get_config()
-    train_model(config)
+    train_model(get_config())

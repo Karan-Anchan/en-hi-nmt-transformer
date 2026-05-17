@@ -1,4 +1,6 @@
-# --- Python Basics ---
+# ==================================================================
+#   Python
+# ==================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,8 +12,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -20,9 +20,12 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
 
-# --- Virtual Environments ---
-# Common names for virtual envs
+# ==================================================================
+#   Virtual environments
+# ==================================================================
 venv/
 env/
 .env/
@@ -30,29 +33,29 @@ env/
 conda/
 .conda/
 
-# --- Installer Logs ---
-pip-log.txt
-pip-delete-this-directory.txt
-
-# --- Jupyter Notebooks ---
+# ==================================================================
+#   Jupyter
+# ==================================================================
 .ipynb_checkpoints/
 *-checkpoint.ipynb
-# Optional: Ignore profile configuration
 profile_default/
 ipython_config.py
 
-# --- IDE & Editors ---
+# ==================================================================
+#   Editors / OS
+# ==================================================================
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# ==================================
-#   DEEP LEARNING SPECIFIC
-# ==================================
-
-# --- Data & Datasets ---
-# Exclude raw data and processed datasets (usually large)
+# ==================================================================
+#   Data (we never commit raw corpora)
+# ==================================================================
 data/
 datasets/
 raw_data/
@@ -60,13 +63,13 @@ processed_data/
 *.zip
 *.tar
 *.tar.gz
-*.csv
 *.parquet
 *.pkl
 *.pickle
 
-# --- Model Weights & Checkpoints ---
-# These are large binary files
+# ==================================================================
+#   Model checkpoints (large binaries)
+# ==================================================================
 *.pt
 *.pth
 *.h5
@@ -81,41 +84,49 @@ weights/
 checkpoints/
 saved_models/
 
-# --- Framework Specifics ---
+# ==================================================================
+#   Experiment tracking
+# ==================================================================
+# We DO commit the frozen test split + CSV logs in runs/tmodel/ so the
+# eval script is reproducible and the training-curve plots can be
+# re-rendered from CSV. We only ignore the TensorBoard binary events.
+runs/**/events.out.tfevents.*
+runs/**/events.out.tfevents.*.v2
 
-# PyTorch Lightning
-lightning_logs/
-
-# TensorFlow / Keras
-logs/
-training_checkpoints/
-
-# HuggingFace / Transformers
-.cache/
-
-# --- Experiment Tracking & Logging ---
-# TensorBoard
-runs/
 tensorboard/
-
-# Weights & Biases (WandB)
 wandb/
 .wandb/
-
-# MLflow
 mlruns/
-
-# Hydra
 multirun/
 outputs/
+lightning_logs/
+training_checkpoints/
 
-# --- Environment Variables & Secrets ---
-# NEVER commit API keys (OpenAI, WandB, AWS)
+# ==================================================================
+#   Logs
+# ==================================================================
+*.log
+eval.log
+training.log
+
+# ==================================================================
+#   Secrets — NEVER commit these
+# ==================================================================
 .env
 .env.local
 secrets.json
 config_local.yaml
+.huggingface/
+hf_token.txt
 
-# --- Documentation ---
-# If you build documentation locally
+# ==================================================================
+#   Documentation build
+# ==================================================================
 site/
+docs/_build/
+
+# ==================================================================
+#   HF cache (downloaded datasets land here)
+# ==================================================================
+.cache/
+.cache_huggingface/

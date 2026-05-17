@@ -1,16 +1,24 @@
-torch
-torchvision
-torchaudio
-tokenizers
-datasets
+# Core
+torch>=2.7
+tokenizers>=0.20
+datasets>=2.18
+sacrebleu>=2.4
+
+# Training / logging
 tqdm
-torchmetrics
-altair
-pandas
-numpy
-notebook
-vl-convert-python
 tensorboard
-transformers
-sacrebleu
+numpy
+pandas
+
+# Eval & viz
 matplotlib
+seaborn
+altair
+vl-convert-python
+
+# Demo
+gradio>=4.0
+
+# Notebooks
+notebook
+ipywidgets
