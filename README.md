@@ -127,7 +127,7 @@ run_all.py · config.py   one-command pipeline · hyperparameter source of truth
 
 ## What changed across the rebuild
 
-The original 2024 version trained on the [IITB En-Hi corpus](https://huggingface.co/datasets/cfilt/iitb-english-hindi) with a word-level tokenizer and reported BLEU ≈ 62 on a 5-sentence in-loop slice — a mirage: word-level BPE without a ByteLevel decoder dropped spaces at decode time (zero n-gram overlap on a real test set), and IITB is bimodal (UI strings + religious text) so the model couldn't translate everyday English. The rebuild swaps in Samanantar and retrains with a paper-faithful recipe.
+The original 2024 version trained on the [IITB En-Hi corpus](https://huggingface.co/datasets/cfilt/iitb-english-hindi) with a word-level tokenizer and reported a misleadingly high BLEU on a tiny 5-sentence in-loop slice — a mirage: word-level BPE without a ByteLevel decoder dropped spaces at decode time (zero n-gram overlap on a real test set), and IITB is bimodal (UI strings + religious text) so the model couldn't translate everyday English. The rebuild swaps in Samanantar and retrains with a paper-faithful recipe.
 
 | | Old (2024) | New |
 | --- | --- | --- |
