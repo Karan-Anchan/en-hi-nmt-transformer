@@ -26,6 +26,13 @@ python translate.py "Type any English sentence here."
 python app.py   # Gradio UI with attention heatmap, http://127.0.0.1:7860
 ```
 
+<p align="center">
+  <img src="decode_live.webp" width="640"
+       alt="Greedy decode generating Hindi token by token while cross-attention sweeps the English source">
+  <br>
+  <em>Greedy decode, live — each Hindi token lights up the English words the decoder is attending to (cross-attention, layer 5, head-average).</em>
+</p>
+
 ## Results
 
 Evaluated on 500 pairs from the frozen 5,000-pair held-out test set (never touched during training):
@@ -37,7 +44,18 @@ Evaluated on 500 pairs from the frozen 5,000-pair held-out test set (never touch
 
 Full report in [`results/eval_report.json`](results/eval_report.json); every prediction in [`results/predictions.tsv`](results/predictions.tsv).
 
-> **BLEU vs. chrF++.** Samanantar's references are paraphrastic web-mined translations, not literal renditions, so BLEU penalizes valid synonym choices that chrF++ credits. chrF++ ≈ 41 with hand-checked sample quality is the meaningful signal — greedy ships with the demo, beam trades latency for lower TER and more fluent long sentences.
+> **BLEU vs. chrF++.** Samanantar's references are paraphrastic web-mined translations, not literal renditions, so BLEU penalizes valid synonym choices that chrF++ credits. chrF++ ≈ 41 with hand-checked sample quality is the meaningful signal.
+
+### What beam search actually buys
+
+Per-sentence analysis over all 500 test pairs: beam's +0.2 corpus chrF++ is a **two-way rewrite**, not a uniform upgrade — 162 sentences improve, 140 get worse (swings up to ±43 chrF++), with no reliable length effect — at 9.3× the latency. Greedy ships with the demo; beam is for offline batches.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="beam_analysis_dark.png">
+    <img src="beam_analysis.png" alt="Per-sentence chrF++ scatter, greedy vs beam, with outcome counts and latency cost" width="820">
+  </picture>
+</p>
 
 ### Training curves
 
